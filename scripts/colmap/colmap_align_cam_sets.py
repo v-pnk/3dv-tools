@@ -3,6 +3,7 @@
 
 """
 Align two camera sets with ICP (use camera centers as point clouds)
+
 """
 
 
@@ -24,12 +25,12 @@ parser.add_argument(
 parser.add_argument(
     "given_colmap_model",
     type=str,
-    help="Path to the COLMAP model with given camera poses",
+    help="Path to the COLMAP model which will be transformed",
 )
 parser.add_argument(
     "transformed_colmap_model",
     type=str,
-    help="Path to the directory where the transformed COLMAP model will be written",
+    help="Path to the directory where the transformed COLMAP model (originally the given_colmap_model) will be written",
 )
 
 parser.add_argument(
