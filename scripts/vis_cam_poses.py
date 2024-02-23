@@ -110,7 +110,7 @@ parser.add_argument(
         "grad-z",
         "normals",
     ],
-    default="monochromatic",
+    default="grad+z",
     help="Mesh coloring mode - monochromatic / texture / gradient along x/y/z axis / normals",
 )
 parser.add_argument(
@@ -126,6 +126,13 @@ parser.add_argument(
     choices=["on", "off"],
     default="off",
     help="Show back faces of the mesh",
+)
+parser.add_argument(
+    "--background_color",
+    type=float,
+    default=[255 / 255, 255 / 255, 255 / 255],
+    nargs="+",
+    help="Background color of the visualization - default: %(default)s",
 )
 parser.add_argument(
     "--pairs_file", 
@@ -288,6 +295,7 @@ def main(args):
         vis.get_render_option().mesh_show_back_face = False
 
     print("Running the visualization...")
+    vis.get_render_option().background_color = np.array(args.background_color)
     vis.run()
 
 
@@ -317,23 +325,28 @@ def load_color_file(input_path, cameras, args):
                 val = np.log(val + 1.0)
             elif args.color_val_fnc == "exp":
                 val = np.exp(val)
-            cameras[cam_dir_i][img_name]["val"] = val
+            for cam_dir_i in cameras.keys():
+                if img_name in cameras[cam_dir_i]:
+                    cameras[cam_dir_i][img_name]["val"] = val
             all_vals.append(val)
 
         elif len(words) == 4:
             img_name = words[0]
-            color = np.array(map(float, words[1:4]))
-            cameras[cam_dir_i][img_name]["color"] = color
+            color = np.reshape(np.array(list(map(float, words[1:4]))), (3, 1))
+            for cam_dir_i in cameras.keys():
+                if img_name in cameras[cam_dir_i]:
+                    cameras[cam_dir_i][img_name]["color"] = color
 
-    min_val = min(all_vals)
-    max_val = max(all_vals)
-    mult_val = 1.0 / (max_val - min_val)
+    if len(all_vals) > 0:
+        min_val = min(all_vals)
+        max_val = max(all_vals)
+        mult_val = 1.0 / (max_val - min_val)
 
-    for cam_dir_i in cameras.keys():
-        for cam_i in cameras[cam_dir_i]:
-            if "val" in cameras[cam_dir_i][cam_i]:
-                rgba = cmap(mult_val * (cameras[cam_dir_i][cam_i]["val"] - min_val))
-                cameras[cam_dir_i][cam_i]["color"] = rgba[0:3]
+        for cam_dir_i in cameras.keys():
+            for cam_i in cameras[cam_dir_i]:
+                if "val" in cameras[cam_dir_i][cam_i]:
+                    rgba = cmap(mult_val * (cameras[cam_dir_i][cam_i]["val"] - min_val))
+                    cameras[cam_dir_i][cam_i]["color"] = rgba[0:3]
 
 
 def load_vrephoto(input_path):
