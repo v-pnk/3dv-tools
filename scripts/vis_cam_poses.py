@@ -26,7 +26,7 @@ import matplotlib.cm
 import open3d as o3d
 
 
-parser = argparse.ArgumentParser(description="")
+parser = argparse.ArgumentParser()
 parser.add_argument(
     "--cam_defs",
     type=str,
@@ -35,7 +35,9 @@ parser.add_argument(
     "directory with .cam and .res files, or directory of a COLMAP model)",
 )
 parser.add_argument(
-    "--model_path", type=str, help="Path to the 3D model (mesh or point cloud)"
+    "--model_path", 
+    type=str, 
+    help="Path to the 3D model (mesh or point cloud)"
 )
 parser.add_argument(
     "--cam_scale",
@@ -51,10 +53,14 @@ parser.add_argument(
     "also overlapping cameras: %(default)s",
 )
 parser.add_argument(
-    "--train_split_file", type=str, help="Train split file in HoliCity format"
+    "--train_split_file", 
+    type=str, 
+    help="Train split file in HoliCity format"
 )
 parser.add_argument(
-    "--test_split_file", type=str, help="Test split file in HoliCity format"
+    "--test_split_file", 
+    type=str, 
+    help="Test split file in HoliCity format"
 )
 parser.add_argument(
     "--max_cam_dist",
@@ -124,7 +130,8 @@ parser.add_argument(
 parser.add_argument(
     "--pairs_file", 
     type=str, 
-    help="Pairs for visualization - two image names per line")
+    help="Pairs for visualization - two image names per line"
+)
 
 
 def main(args):
@@ -220,13 +227,12 @@ def main(args):
     if args.pairs_file is not None:
         pairs = parse_pairs_file(args.pairs_file)
 
-        
         for cam_dir_i in cameras.keys():
             for cam_i in cameras[cam_dir_i]:
                 if cameras[cam_dir_i][cam_i]["name"] in pairs:
                     for pair_i in pairs[cameras[cam_dir_i][cam_i]["name"]]:
                         if pair_i in cameras[cam_dir_i]:
-                            cameras[cam_dir_i][cam_i]["pairs"] = pair_i                    
+                            cameras[cam_dir_i][cam_i]["pairs"] = pair_i
 
     # - filter cameras based on distance to the mesh model center (max_cam_dist)
     if (args.model_path is not None) and (args.max_cam_dist > 0):
@@ -365,10 +371,18 @@ def parse_cam_file(path, w, h):
     line2 = f.readline()
 
     (
-        t[0], t[1], t[2],
-        R[0, 0], R[0, 1], R[0, 2],
-        R[1, 0], R[1, 1], R[1, 2],
-        R[2, 0], R[2, 1],R[2, 2],
+        t[0],
+        t[1],
+        t[2],
+        R[0, 0],
+        R[0, 1],
+        R[0, 2],
+        R[1, 0],
+        R[1, 1],
+        R[1, 2],
+        R[2, 0],
+        R[2, 1],
+        R[2, 2],
     ) = map(float, line1.split())
     T[0:3, 0:3] = R
     T[0:3, 3] = t.flatten()
@@ -446,9 +460,9 @@ def parse_pairs_file(path):
 
                 if img_name_1 not in pairs:
                     pairs[img_name_1] = []
-                
+
                 pairs[img_name_1].append(img_name_2)
-    
+
     return pairs
 
 

@@ -5,22 +5,35 @@
 Convert COLMAP model from multiple cameras to a single one (assuming there are 
 multiple cameras in the model, but only single camera in reality) by averaging 
 the camera parameters.
+
 """
 
 
-import os
 import argparse
 import pycolmap
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--input_path", type=str, required=True,
-                    help="Path to the input COLMAP model")
-parser.add_argument("--output_path", type=str, required=True,
-                    help="Path to the output COLMAP model")
-parser.add_argument("--output_type", type=str, required=False, 
-                    choices=["BIN", "TXT"], default="BIN", 
-                    help="Type of the output model")
+parser.add_argument(
+    "--input_path", 
+    type=str, 
+    required=True, 
+    help="Path to the input COLMAP model"
+)
+parser.add_argument(
+    "--output_path", 
+    type=str, 
+    required=True, 
+    help="Path to the output COLMAP model"
+)
+parser.add_argument(
+    "--output_type",
+    type=str,
+    required=False,
+    choices=["BIN", "TXT"],
+    default="BIN",
+    help="Type of the output model",
+)
 
 
 def main(args):
@@ -59,7 +72,10 @@ def main(args):
             fy += cam.params[1]
             cx += cam.params[2]
             cy += cam.params[3]
-        elif cam.model_name == "SIMPLE_RADIAL" or cam.model_name == "SIMPLE_RADIAL_FISHEYE":
+        elif (
+            cam.model_name == "SIMPLE_RADIAL"
+            or cam.model_name == "SIMPLE_RADIAL_FISHEYE"
+        ):
             # f, cx, cy, k
             fx += cam.params[0]
             fy += cam.params[0]
@@ -129,7 +145,7 @@ def main(args):
             k4 += cam.params[9]
             sx1 += cam.params[10]
             sy1 += cam.params[11]
-        
+
     fx = fx / input_colmap_model.num_cameras()
     fy = fy / input_colmap_model.num_cameras()
     cx = cx / input_colmap_model.num_cameras()
@@ -174,16 +190,16 @@ def main(args):
         new_params = [fx, fy, cx, cy, k1, k2, p1, p2, k3, k4, sx1, sy1]
 
     output_colmap_model = pycolmap.Reconstruction()
-    output_colmap_model.add_camera(pycolmap.Camera(model=model_name,
-                                                   width=w,
-                                                   height=h,
-                                                   params=new_params, 
-                                                   id=1))
+    output_colmap_model.add_camera(
+        pycolmap.Camera(model=model_name, width=w, height=h, params=new_params, id=1)
+    )
 
     for img_id, img in input_colmap_model.images.items():
-        new_image = pycolmap.Image(name=img.name, tvec=img.tvec, qvec=img.qvec, camera_id=1, id=img.image_id)
+        new_image = pycolmap.Image(
+            name=img.name, tvec=img.tvec, qvec=img.qvec, camera_id=1, id=img.image_id
+        )
         output_colmap_model.add_image(new_image)
-    
+
     for img_id, img in input_colmap_model.images.items():
         output_colmap_model.register_image(img_id)
 

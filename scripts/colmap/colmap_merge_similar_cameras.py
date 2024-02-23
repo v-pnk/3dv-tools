@@ -3,27 +3,48 @@
 
 """
 Reduce number of cameras in COLMAP model by merging similar ones.
+
 """
 
 
-import os
 import math
 import argparse
 import pycolmap
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--input_path", type=str, required=True,
-                    help="Path to the input COLMAP model")
-parser.add_argument("--output_path", type=str, required=True,
-                    help="Path to the output COLMAP model")
-parser.add_argument("--output_type", type=str, required=False,
-                    choices=["BIN", "TXT"], default="BIN",
-                    help="Type of the output model")
-parser.add_argument("--large_diff_thr", type=float, default=100, 
-                    help="Difference threshold for large values > 1 (fx, fy, cx, cy)")
-parser.add_argument("--small_diff_thr", type=float, default=0.1, 
-                    help="Difference threshold for small values < 1 (k, p)")
+parser.add_argument(
+    "--input_path", 
+    type=str, 
+    required=True, 
+    help="Path to the input COLMAP model"
+)
+parser.add_argument(
+    "--output_path", 
+    type=str, 
+    required=True, 
+    help="Path to the output COLMAP model"
+)
+parser.add_argument(
+    "--output_type",
+    type=str,
+    required=False,
+    choices=["BIN", "TXT"],
+    default="BIN",
+    help="Type of the output model",
+)
+parser.add_argument(
+    "--large_diff_thr",
+    type=float,
+    default=100,
+    help="Difference threshold for large values > 1 (fx, fy, cx, cy)",
+)
+parser.add_argument(
+    "--small_diff_thr",
+    type=float,
+    default=0.1,
+    help="Difference threshold for small values < 1 (k, p)",
+)
 
 
 def main(args):
@@ -38,7 +59,9 @@ def main(args):
 
     print("- Searching for similar cameras")
     for _, cam in input_colmap_model.cameras.items():
-        sim_idx = check_similar(cam, unq_cam_list, args.large_diff_thr, args.small_diff_thr)
+        sim_idx = check_similar(
+            cam, unq_cam_list, args.large_diff_thr, args.small_diff_thr
+        )
 
         if sim_idx is None:
             sim_list.append(len(unq_cam_list))
@@ -47,7 +70,7 @@ def main(args):
             sim_list.append(sim_idx)
 
         all_cam_list.append(cam)
-    
+
     print("- Merging similar cameras")
     id_map, new_cam_list = mean_cam(sim_list, all_cam_list)
 
@@ -58,7 +81,12 @@ def main(args):
 
     for img_id, img in input_colmap_model.images.items():
         new_image = pycolmap.Image(
-            name=img.name, tvec=img.tvec, qvec=img.qvec, camera_id=id_map[img.camera_id], id=img.image_id)
+            name=img.name,
+            tvec=img.tvec,
+            qvec=img.qvec,
+            camera_id=id_map[img.camera_id],
+            id=img.image_id,
+        )
         output_colmap_model.add_image(new_image)
 
     for img_id, img in input_colmap_model.images.items():
@@ -72,10 +100,12 @@ def main(args):
 
 def check_similar(cam_c, unq_cam_list, large_diff_thr, small_diff_thr):
     for idx, cam_l in enumerate(unq_cam_list):
-        if (cam_l.height != cam_c.height) or (cam_l.width != cam_c.width) or (cam_l.model_name != cam_c.model_name):
+        if (
+            (cam_l.height != cam_c.height)
+            or (cam_l.width != cam_c.width)
+            or (cam_l.model_name != cam_c.model_name)
+        ):
             continue
-        
-
 
         for param_l, param_c in zip(cam_l.params, cam_c.params):
             if param_c <= 1.0:
@@ -86,10 +116,10 @@ def check_similar(cam_c, unq_cam_list, large_diff_thr, small_diff_thr):
             if abs(param_l - param_c) > abs(abs_diff_thr):
                 break
         else:
-            # - the program counter gets here only if the above loop did not 
+            # - the program counter gets here only if the above loop did not
             #   break (finished successfully)
             return idx
-    
+
     return None
 
 
@@ -99,7 +129,7 @@ def mean_cam(sim_list, all_cam_list):
     new_cam_list = []
     for new_idx, unq_idx in enumerate(unq_cam_idx):
         new_id = new_idx + 1
-        sim_cam_list = [b for a,b, in zip(sim_list, all_cam_list) if a == unq_idx]
+        sim_cam_list = [b for a, b, in zip(sim_list, all_cam_list) if a == unq_idx]
         params_sum = [0] * len(sim_cam_list[0].params)
 
         w = sim_cam_list[0].width
@@ -112,15 +142,18 @@ def mean_cam(sim_list, all_cam_list):
             assert model_name == sim_cam.model_name
 
             id_map[sim_cam.camera_id] = new_id
-            params_sum = [a+b for a, b in zip(params_sum, sim_cam.params)]
-        
+            params_sum = [a + b for a, b in zip(params_sum, sim_cam.params)]
+
         new_params = [a / len(sim_cam_list) for a in params_sum]
 
         params_std = [0] * len(sim_cam_list[0].params)
         for sim_cam in sim_cam_list:
             id_map[sim_cam.camera_id] = new_id
-            params_std = [a + ((b-c)*(b-c)) for a, b, c in zip(params_std, new_params, sim_cam.params)]
-        
+            params_std = [
+                a + ((b - c) * (b - c))
+                for a, b, c in zip(params_std, new_params, sim_cam.params)
+            ]
+
         params_std = [math.sqrt(a / len(sim_cam_list)) for a in params_std]
 
         print("  - New camera {}:".format(new_id))
@@ -131,7 +164,15 @@ def mean_cam(sim_list, all_cam_list):
         print("    - params standard deviation:")
         print("      {}".format(params_std))
 
-        new_cam_list.append(pycolmap.Camera(model=sim_cam.model_name, width=sim_cam.width, height=sim_cam.height, params=new_params, id=new_id))
+        new_cam_list.append(
+            pycolmap.Camera(
+                model=sim_cam.model_name,
+                width=sim_cam.width,
+                height=sim_cam.height,
+                params=new_params,
+                id=new_id,
+            )
+        )
 
     return (id_map, new_cam_list)
 

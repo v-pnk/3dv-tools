@@ -3,6 +3,7 @@
 
 """
 Resizes images and adjusts cameras and feature points in the given COLMAP model.
+
 """
 
 
@@ -14,12 +15,30 @@ import pycolmap
 
 
 parser = argparse.ArgumentParser(description="Resize images and COLMAP model")
-parser.add_argument("--input_images", type=str, help="Input images directory")
-parser.add_argument("--output_images", type=str, help="Output images directory")
-parser.add_argument("--input_colmap", type=str, help="Input COLMAP model directory")
-parser.add_argument("--output_colmap", type=str, help="Output COLMAP model directory")
 parser.add_argument(
-    "--max_size", type=int, help="The max size (longer side) of output image"
+    "--input_images", 
+    type=str, 
+    help="Input images directory"
+)
+parser.add_argument(
+    "--output_images", 
+    type=str, 
+    help="Output images directory"
+)
+parser.add_argument(
+    "--input_colmap", 
+    type=str, 
+    help="Input COLMAP model directory"
+)
+parser.add_argument(
+    "--output_colmap",
+    type=str,
+    help="Output COLMAP model directory"
+)
+parser.add_argument(
+    "--max_size", 
+    type=int, 
+    help="The max size (longer side) of output image"
 )
 parser.add_argument(
     "--size_ratio",
@@ -37,8 +56,10 @@ parser.add_argument(
     help="Resize the images based on sizes of the COLMAP modelin the input_colmap directory",
 )
 parser.add_argument(
-    "--image_interp", type=str, choices=["bicubic", "nearest"], 
-    default="bicubic", 
+    "--image_interp",
+    type=str,
+    choices=["bicubic", "nearest"],
+    default="bicubic",
     help="Resize the images based on sizes of the COLMAP modelin the input_colmap directory",
 )
 
@@ -115,9 +136,13 @@ def main(args):
                 new_height = img_sizes[img_in_file][1]
 
             if args.image_interp == "bicubic":
-                img_out = img_in.resize((new_width, new_height), resample=Image.Resampling.BICUBIC)
+                img_out = img_in.resize(
+                    (new_width, new_height), resample=Image.Resampling.BICUBIC
+                )
             elif args.image_interp == "nearest":
-                img_out = img_in.resize((new_width, new_height), resample=Image.Resampling.NEAREST)
+                img_out = img_in.resize(
+                    (new_width, new_height), resample=Image.Resampling.NEAREST
+                )
 
             img_out_dir = os.path.dirname(img_out_path)
             if not (os.path.exists(img_out_dir)):

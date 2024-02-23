@@ -16,35 +16,80 @@ import faiss
 
 
 parser = argparse.ArgumentParser(description="")
-parser.add_argument("mesh_A", type=str, 
-    help="Path to the first mesh (visualized)")
-parser.add_argument("mesh_B", type=str, 
-    help="Path to the second mesh (reference)")
-parser.add_argument("--auto_mesh_A_tris", type=int,
-    help="Desired number of triangles of mesh A")
-parser.add_argument("--auto_mesh_B_tris", type=int,
-    help="Desired number of triangles of mesh A")
-parser.add_argument("--simplify_frac_A", type=float, 
-    help="Fraction of vertices to keep after simplification step on mesh A")
-parser.add_argument("--simplify_frac_B", type=float, 
-    help="Fraction of vertices to keep after simplification step on mesh B")
-parser.add_argument("--subdiv_iter_A", type=int, 
-    help="Number of subdivision algorithm iterations on mesh A (single iteration divides each triangle to four)")
-parser.add_argument("--subdiv_iter_B", type=int, 
-    help="Number of subdivision algorithm iterations on mesh B (single iteration divides each triangle to four)")
-parser.add_argument("--max_dist", default=1.0, type=float, 
-    help="Set maximum distance (-1 for auto)")
-parser.add_argument("--min_dist", default=0.0, type=float, 
-    help="Set minimum distance (-1 for auto)")
-parser.add_argument("--dist_fnc", default="lin", 
-    choices=["lin","root2","root4","root8"], type=str, 
-    help="Function to apply on the distances")
-parser.add_argument("--show_dist_hist", action="store_true", 
-    help="Show the histogram of distances")
-parser.add_argument("--dont_visualize", action="store_false",
-    help="Do not show the mesh visualization")
-parser.add_argument("--dist_path", type=str,
-    help="Path for saving the computed distances in .npy file")
+parser.add_argument(
+    "mesh_A", 
+    type=str, 
+    help="Path to the first mesh (visualized)"
+)
+parser.add_argument(
+    "mesh_B", 
+    type=str, 
+    help="Path to the second mesh (reference)"
+)
+parser.add_argument(
+    "--auto_mesh_A_tris", 
+    type=int, 
+    help="Desired number of triangles of mesh A"
+)
+parser.add_argument(
+    "--auto_mesh_B_tris", 
+    type=int, 
+    help="Desired number of triangles of mesh A"
+)
+parser.add_argument(
+    "--simplify_frac_A",
+    type=float,
+    help="Fraction of vertices to keep after simplification step on mesh A",
+)
+parser.add_argument(
+    "--simplify_frac_B",
+    type=float,
+    help="Fraction of vertices to keep after simplification step on mesh B",
+)
+parser.add_argument(
+    "--subdiv_iter_A",
+    type=int,
+    help="Number of subdivision algorithm iterations on mesh A (single iteration divides each triangle to four)",
+)
+parser.add_argument(
+    "--subdiv_iter_B",
+    type=int,
+    help="Number of subdivision algorithm iterations on mesh B (single iteration divides each triangle to four)",
+)
+parser.add_argument(
+    "--max_dist", 
+    default=1.0, 
+    type=float, 
+    help="Set maximum distance (-1 for auto)"
+)
+parser.add_argument(
+    "--min_dist", 
+    default=0.0, 
+    type=float, 
+    help="Set minimum distance (-1 for auto)"
+)
+parser.add_argument(
+    "--dist_fnc",
+    default="lin",
+    choices=["lin", "root2", "root4", "root8"],
+    type=str,
+    help="Function to apply on the distances",
+)
+parser.add_argument(
+    "--show_dist_hist", 
+    action="store_true", 
+    help="Show the histogram of distances"
+)
+parser.add_argument(
+    "--dont_visualize", 
+    action="store_false", 
+    help="Do not show the mesh visualization"
+)
+parser.add_argument(
+    "--dist_path", 
+    type=str, 
+    help="Path for saving the computed distances in .npy file"
+)
 
 
 def main(args):
@@ -69,8 +114,7 @@ def main(args):
         if tris_B_num_init > args.auto_mesh_B_tris:
             mesh_B = mesh_B.simplify_quadric_decimation(args.auto_mesh_B_tris)
         elif tris_B_num_init < args.auto_mesh_B_tris:
-            divide_iters = round(
-                math.log(args.auto_mesh_B_tris / tris_B_num_init, 4))
+            divide_iters = round(math.log(args.auto_mesh_B_tris / tris_B_num_init, 4))
             if divide_iters > 0:
                 mesh_B = mesh_B.subdivide_midpoint(divide_iters)
 
@@ -84,10 +128,14 @@ def main(args):
     tris_B_num = np.asarray(mesh_B.triangles).shape[0]
 
     if (args.auto_mesh_A_tris is None) and (args.simplify_frac_A is not None):
-        mesh_A = mesh_A.simplify_quadric_decimation(int(args.simplify_frac_A*tris_A_num))
+        mesh_A = mesh_A.simplify_quadric_decimation(
+            int(args.simplify_frac_A * tris_A_num)
+        )
 
     if (args.auto_mesh_B_tris is None) and (args.simplify_frac_B is not None):
-        mesh_B = mesh_B.simplify_quadric_decimation(int(args.simplify_frac_B*tris_B_num))
+        mesh_B = mesh_B.simplify_quadric_decimation(
+            int(args.simplify_frac_B * tris_B_num)
+        )
 
     tris_A_num = np.asarray(mesh_A.triangles).shape[0]
     tris_B_num = np.asarray(mesh_B.triangles).shape[0]
@@ -110,16 +158,16 @@ def main(args):
     dists.flatten()
 
     if args.show_dist_hist:
-        plt.hist(100.0*dists, bins=100, density=True, color=(0.002, 0.709, 0.923))
+        plt.hist(100.0 * dists, bins=100, density=True, color=(0.002, 0.709, 0.923))
         if args.min_dist is not None:
             plt.xlim(left=args.min_dist)
         else:
             plt.xlim(left=0)
-        if abs(args.max_dist + 1) > 10*np.finfo(float).eps:
+        if abs(args.max_dist + 1) > 10 * np.finfo(float).eps:
             plt.xlim(right=args.max_dist)
         plt.grid()
         plt.show()
-    
+
     if args.dist_path is not None:
         if args.max_dist > 0:
             dists_out = dists[dists < args.max_dist]
@@ -136,8 +184,8 @@ def main(args):
     dists_max = np.max(dists)
     dists_norm = (dists - dists_min) / (dists_max - dists_min)
 
-    cmap=plt.get_cmap('viridis')
-    rgb = cmap(dists_norm).squeeze()[:,0:3]
+    cmap = plt.get_cmap("viridis")
+    rgb = cmap(dists_norm).squeeze()[:, 0:3]
     mesh_A.vertex_colors = o3d.utility.Vector3dVector(rgb)
 
     if args.dont_visualize:

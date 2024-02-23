@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+
 """
 Evaluate blurriness of given images by using the average value of local standard
 deviation.
+
 """
+
 
 import argparse
 import os
@@ -12,13 +15,18 @@ import numpy as np
 import shutil
 import glob
 
-parser = argparse.ArgumentParser(description="Argument parser")
 
+parser = argparse.ArgumentParser(description="Argument parser")
 parser.add_argument(
-    "input_image", type=str, help="path to the input image or directory"
+    "input_image", 
+    type=str, 
+    help="path to the input image or directory"
 )
 parser.add_argument(
-    "--kernel_size", type=int, default=3, help="size of the blurring kernel"
+    "--kernel_size", 
+    type=int, 
+    default=3, 
+    help="size of the blurring kernel"
 )
 parser.add_argument(
     "--threshold",
@@ -27,10 +35,14 @@ parser.add_argument(
     help="the threshold of the max. of local std. dev. to label the image as blurry (sharper images have higher local std. dev.)",
 )
 parser.add_argument(
-    "--delete_blurry", action="store_true", help="delete the blurry images"
+    "--delete_blurry", 
+    action="store_true", 
+    help="delete the blurry images"
 )
 parser.add_argument(
-    "--copy_to", type=str, help="copy the sharp images to the given directory"
+    "--copy_to", 
+    type=str, 
+    help="copy the sharp images to the given directory"
 )
 parser.add_argument(
     "--test_postfix",

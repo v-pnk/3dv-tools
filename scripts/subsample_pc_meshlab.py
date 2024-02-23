@@ -11,13 +11,10 @@ import argparse
 import pymeshlab
 
 
-parser = argparse.ArgumentParser(description="Evaluation tool")
-parser.add_argument("input_pc", type=str,
-    help="Path to the input point cloud")
-parser.add_argument("output_pc", type=str,
-    help="Path to the output point cloud")
-parser.add_argument("frac", type=float,
-    help="Fraction of the points to keep")
+parser = argparse.ArgumentParser()
+parser.add_argument("input_pc", type=str, help="Path to the input point cloud")
+parser.add_argument("output_pc", type=str, help="Path to the output point cloud")
+parser.add_argument("frac", type=float, help="Fraction of the points to keep")
 
 
 def main(args):

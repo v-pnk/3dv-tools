@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
+
 """
 Print out (or visualize) samples from a selcted matplotlib colormap.
+
 """
 
 
@@ -17,10 +19,16 @@ parser.add_argument(
     help="Colormap name - see: https://matplotlib.org/stable/tutorials/colors/colormaps.html",
 )
 parser.add_argument(
-    "--uniform_num", type=int, default=10, help="Number of uniformly sampled values"
+    "--uniform_num", 
+    type=int, 
+    default=10, 
+    help="Number of uniformly sampled values"
 )
 parser.add_argument(
-    "--values", type=float, nargs="+", help="List of values in <0,1> interval"
+    "--values", 
+    type=float, 
+    nargs="+", 
+    help="List of values in <0,1> interval"
 )
 parser.add_argument(
     "--join_format",

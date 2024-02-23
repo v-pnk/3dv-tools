@@ -15,14 +15,20 @@ import open3d as o3d
 
 
 parser = argparse.ArgumentParser(description="")
-parser.add_argument("input_file", type=str, help="Path to the input 3D file parsable by Open3D")
+parser.add_argument(
+    "input_file", 
+    type=str, 
+    help="Path to the input 3D file parsable by Open3D"
+)
 
 
-mesh_exts = ('.stl', '.obj', '.off', '.gltf')
+mesh_exts = (".stl", ".obj", ".off", ".gltf")
 
 
 def main(args):
-    assert os.path.exists(args.input_file), "The given file does not exist:{}".format(args.input_file)
+    assert os.path.exists(args.input_file), "The given file does not exist:{}".format(
+        args.input_file
+    )
 
     ext = os.path.splitext(args.input_file)[1]
     if ext in mesh_exts:
@@ -40,9 +46,9 @@ def main(args):
 
     print("centroid:")
     print(centroid)
-    print('axis-aligned bounding box corner points:')
+    print("axis-aligned bounding box corner points:")
     print(aabb.get_print_info())
-    print('axis-aligned bounding box extent:')
+    print("axis-aligned bounding box extent:")
     print(aabb.get_extent())
 
 

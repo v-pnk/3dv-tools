@@ -12,21 +12,60 @@ import copy
 import argparse
 import pycolmap
 
-parser = argparse.ArgumentParser(description="")
-parser.add_argument("input_colmap", type=str, help="Input COLMAP model directory")
-parser.add_argument("output_colmap", type=str, help="Output COLMAP model directory")
-parser.add_argument("--new_img_dir", type=str, help="Image directory with the subset of images")
-parser.add_argument("--new_img_list", type=str, help="Image list file (one image relative path per line) with the subset of images")
-parser.add_argument("--old_img_postfix", type=str, help="Filename postfix of the images in the input_colmap model")
-parser.add_argument("--ignore_old_img_ext", action="store_true", help="Ignore extensions of old images")
-parser.add_argument("--new_img_postfix", type=str, help="Filename postfix of the images in the input_img_dir")
-parser.add_argument("--underscores", action="store_true", help="Match image paths with slash characters replaced by underscores")
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "input_colmap", 
+    type=str, 
+    help="Input COLMAP model directory"
+)
+parser.add_argument(
+    "output_colmap", 
+    type=str, 
+    help="Output COLMAP model directory"
+)
+parser.add_argument(
+    "--new_img_dir",
+    type=str,
+    help="Image directory with the subset of images"
+)
+parser.add_argument(
+    "--new_img_list",
+    type=str,
+    help="Image list file (one image relative path per line) with the subset of images",
+)
+parser.add_argument(
+    "--old_img_postfix",
+    type=str,
+    help="Filename postfix of the images in the input_colmap model",
+)
+parser.add_argument(
+    "--ignore_old_img_ext", 
+    action="store_true", 
+    help="Ignore extensions of old images"
+)
+parser.add_argument(
+    "--new_img_postfix",
+    type=str,
+    help="Filename postfix of the images in the input_img_dir",
+)
+parser.add_argument(
+    "--underscores",
+    action="store_true",
+    help="Match image paths with slash characters replaced by underscores",
+)
 
 
 def main(args):
-    assert os.path.isdir(args.input_colmap), "The input COLMAP model does not exist: {}".format(args.input_colmap)
-    assert os.path.isdir(args.new_img_dir), "The new image directory does not exist: {}".format(args.new_img_dir)
-    assert os.path.isdir(args.output_colmap), "The output COLMAP model does not exist: {}".format(args.output_colmap)
+    assert os.path.isdir(
+        args.input_colmap
+    ), "The input COLMAP model does not exist: {}".format(args.input_colmap)
+    assert os.path.isdir(
+        args.new_img_dir
+    ), "The new image directory does not exist: {}".format(args.new_img_dir)
+    assert os.path.isdir(
+        args.output_colmap
+    ), "The output COLMAP model does not exist: {}".format(args.output_colmap)
 
     print("- getting the list of images")
     img_mapping = {}
@@ -35,7 +74,11 @@ def main(args):
         args.old_img_postfix = ""
 
     if args.new_img_dir is not None:
-        new_images = [os.path.relpath(os.path.join(dp, f), args.new_img_dir) for dp, _, filenames in os.walk(args.new_img_dir) for f in filenames]
+        new_images = [
+            os.path.relpath(os.path.join(dp, f), args.new_img_dir)
+            for dp, _, filenames in os.walk(args.new_img_dir)
+            for f in filenames
+        ]
     elif args.new_img_list is not None:
         new_images = read_img_list(args.new_img_list)
     else:

@@ -21,8 +21,8 @@ parser.add_argument("input_colmap", type=str, help="The input colmap model")
 
 
 def main(args):
-    output_pc = np.empty((3,0), dtype=np.float32)
-    
+    output_pc = np.empty((3, 0), dtype=np.float32)
+
     depth_map = np.load(args.np_depth)["depth"]
 
     # load the data from COLMAP model
@@ -35,21 +35,26 @@ def main(args):
     colmap_image = None
     colmap_camera = None
     for img_id, img in colmap_model.images.items():
-        image_name = remove_postfix(os.path.basename(img.name), [".png", ".jpg", "_rendered_no_color.png", "_rendered_color.png"])
+        image_name = remove_postfix(
+            os.path.basename(img.name),
+            [".png", ".jpg", "_rendered_no_color.png", "_rendered_color.png"],
+        )
 
         if image_name == depth_name:
             colmap_image = img
             colmap_camera = colmap_model.cameras[img.camera_id]
             break
 
-    assert colmap_image is not None, "Could not find the image with the same name as the depth map"
+    assert (
+        colmap_image is not None
+    ), "Could not find the image with the same name as the depth map"
 
     T = np.eye(4)
     T[0:3, 0:3] = np.linalg.inv(quat2R(colmap_image.qvec))
     T[0:3, 3] = -colmap_image.tvec
 
     fx = colmap_camera.focal_length_x
-    
+
     # convert the depth map to point cloud
     pc = depth2pc(depth_map, fx)
     pc = transform_pc(pc, T)
@@ -59,17 +64,31 @@ def main(args):
 def remove_postfix(string, postfix_list):
     for postfix in postfix_list:
         if string.endswith(postfix):
-            string = string[:-len(postfix)]
+            string = string[: -len(postfix)]
     return string
 
 
 # Quaternion (WXYZ) to rotation matrix
 def quat2R(q):
-    R = np.array([
-        [1 - 2*(q[2]*q[2] + q[3]*q[3]), 2*(q[1]*q[2] - q[0]*q[3]), 2*(q[1]*q[3] + q[0]*q[2])],
-        [2*(q[1]*q[2] + q[0]*q[3]), 1 - 2 * (q[1]*q[1] + q[3]*q[3]), 2*(q[2]*q[3] - q[0]*q[1])],
-        [2*(q[1]*q[3] - q[0]*q[2]), 2*(q[2]*q[3] + q[0]*q[1]), 1 - 2*(q[1]*q[1] + q[2]*q[2])]
-    ])
+    R = np.array(
+        [
+            [
+                1 - 2 * (q[2] * q[2] + q[3] * q[3]),
+                2 * (q[1] * q[2] - q[0] * q[3]),
+                2 * (q[1] * q[3] + q[0] * q[2]),
+            ],
+            [
+                2 * (q[1] * q[2] + q[0] * q[3]),
+                1 - 2 * (q[1] * q[1] + q[3] * q[3]),
+                2 * (q[2] * q[3] - q[0] * q[1]),
+            ],
+            [
+                2 * (q[1] * q[3] - q[0] * q[2]),
+                2 * (q[2] * q[3] + q[0] * q[1]),
+                1 - 2 * (q[1] * q[1] + q[2] * q[2]),
+            ],
+        ]
+    )
 
     R = np.squeeze(R)
 
@@ -101,6 +120,6 @@ def save_xyz(xyz, path):
     np.savetxt(path, xyz, fmt="%.3f")
 
 
-if __name__ == "__main__": 
+if __name__ == "__main__":
     args = parser.parse_args()
     main(args)

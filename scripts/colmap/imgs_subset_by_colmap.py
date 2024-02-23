@@ -14,16 +14,31 @@ import shutil
 
 
 parser = argparse.ArgumentParser(description="")
-parser.add_argument("input_img_dir", type=str,
-    help="Input directory with images")
-parser.add_argument("colmap", type=str,
-    help="COLMAP model containing subset of images")
-parser.add_argument("output_img_dir", type=str,
-    help="Output directory for the subset of images")
-parser.add_argument("--ignore_ext", action="store_true",
-    help="Ignore extensions when comparing image names")
-parser.add_argument("--invert", action="store_true",
-    help="Invert the selection, i.e. copy images that are not in the model")
+parser.add_argument(
+    "input_img_dir", 
+    type=str, 
+    help="Input directory with images"
+)
+parser.add_argument(
+    "colmap", 
+    type=str, 
+    help="COLMAP model containing subset of images"
+)
+parser.add_argument(
+    "output_img_dir", 
+    type=str, 
+    help="Output directory for the subset of images"
+)
+parser.add_argument(
+    "--ignore_ext",
+    action="store_true",
+    help="Ignore extensions when comparing image names",
+)
+parser.add_argument(
+    "--invert",
+    action="store_true",
+    help="Invert the selection, i.e. copy images that are not in the model",
+)
 
 
 def main(args):
@@ -31,21 +46,29 @@ def main(args):
 
     model = pycolmap.Reconstruction(args.colmap)
     # input_images = os.listdir(args.input_img_dir)
-    input_images = [os.path.relpath(os.path.join(dp, f), args.input_img_dir) for dp, _, filenames in os.walk(args.input_img_dir) for f in filenames]
-    
+    input_images = [
+        os.path.relpath(os.path.join(dp, f), args.input_img_dir)
+        for dp, _, filenames in os.walk(args.input_img_dir)
+        for f in filenames
+    ]
+
     img_list = [img.name for img in model.images.values()]
-    
+
     if args.ignore_ext:
         img_list = [os.path.splitext(img)[0] for img in img_list]
 
     if args.invert:
         output_images = [img for img in input_images if img not in img_list]
         if args.ignore_ext:
-            output_images = [img for img in input_images if os.path.splitext(img)[0] not in img_list]
+            output_images = [
+                img for img in input_images if os.path.splitext(img)[0] not in img_list
+            ]
     else:
         output_images = [img for img in input_images if img in img_list]
         if args.ignore_ext:
-            output_images = [img for img in input_images if os.path.splitext(img)[0] in img_list]
+            output_images = [
+                img for img in input_images if os.path.splitext(img)[0] in img_list
+            ]
 
     input_paths = [os.path.join(args.input_img_dir, img) for img in output_images]
     output_paths = [os.path.join(args.output_img_dir, img) for img in output_images]
