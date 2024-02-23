@@ -20,6 +20,7 @@ import re
 import math
 import json
 import argparse
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import cv2
@@ -29,12 +30,13 @@ import exiftool
 parser = argparse.ArgumentParser()
 parser.add_argument("dji_srt_path", type=str, help="Path to the input SRT file")
 parser.add_argument("--video_path", type=str, help="Path to the input video file")
-parser.add_argument("--geojson_path", type=str, help="Path to the output GeoJSON file with the flight path")
+parser.add_argument("--geojson_path", type=str, help="Path to the output GeoJSON file with the flight path / frame locations")
+parser.add_argument("--gpx_path", type=str, help="Path to the output GPX file with the flight path / frame locations")
 parser.add_argument("--frame_dir", type=str, help="Path to the output directory with video frames")
 
 parser.add_argument("--frame_rate", type=float, default=1.0, help="Frame rate for the extraction (frames per second)")
 parser.add_argument("--res_ratio", type=float, default=1.0, help="Resolution ratio used for downsampling the frames - can be in (0.0 - 1.0) range")
-parser.add_argument("--geojson_mode", type=str, choices=["full", "only_frames"], help="Which data to include in the GeoJSON file - full log from the SRT file or only the positions of the extracted video frames")
+parser.add_argument("--geo_mode", type=str, default="full", choices=["full", "only_frames"], help="Which data to include in the GeoJSON / GPX file - full log from the SRT file or only the positions of the extracted video frames")
 
 
 def main(args):
@@ -75,14 +77,24 @@ def main(args):
                 # TODO: What is the focal length value in the SRT file?
 
                 et.set_tags(image_path, exif_tags, params=["-overwrite_original"])
+    else:
+        frame_idx_list = list(range(len(timestamps)))
 
     if args.geojson_path is not None:
-        if args.geojson_mode == "full":
+        if args.geo_mode == "full":
             print("Writing the full location log to the GeoJSON file...")
             write_geojson(args.geojson_path, coords_wgs84, timestamps)
         else:
             print("Writing the frame locations to the GeoJSON file...")
             write_geojson(args.geojson_path, coords_wgs84[:, frame_idx_list], timestamps[frame_idx_list])
+
+    if args.gpx_path is not None:
+        if args.geo_mode == "full":
+            print("Writing the full location log to the GPX file...")
+            write_gpx(args.gpx_path, coords_wgs84, timestamps)
+        else:
+            print("Writing the frame locations to the GPX file...")
+            write_gpx(args.gpx_path, coords_wgs84[:, frame_idx_list], timestamps[frame_idx_list])
 
 
 def load_dji_srt_file(dji_srt_path):
@@ -394,6 +406,29 @@ def write_geojson(file_path, coords_wgs84, timestamps):
     # Write the GeoJSON file
     with open(file_path, "wt") as f:
         json.dump(geojson_data, f, indent=4)
+
+
+def write_gpx(file_path, coords_wgs84, timestamps):
+    """Write the location points to a GPX file.
+
+    Parameters:
+    file_path (str): The path to the output GPX file.
+    coords_wgs84 (np.ndarray): The WGS84 coordinates.
+    timestamps (list): The timestamps.
+
+    """
+
+    gpx = ET.Element("gpx", attrib={"version": "1.1", "creator": "3DV-Tools: DJI SRT Tools - https://github.com/v-pnk/3dv-tools"})
+    trk = ET.SubElement(gpx, "trk")
+    trkseg = ET.SubElement(trk, "trkseg")
+
+    for i in range(len(timestamps)):
+        trkpt = ET.SubElement(trkseg, "trkpt", attrib={"lat": str(coords_wgs84[0, i]), "lon": str(coords_wgs84[1, i])})
+        ET.SubElement(trkpt, "time").text = timestamps[i].strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+        ET.SubElement(trkpt, "ele").text = str(coords_wgs84[2, i])
+
+    tree = ET.ElementTree(gpx)
+    tree.write(file_path, encoding="UTF-8", xml_declaration=True)
 
 
 if __name__ == "__main__":
