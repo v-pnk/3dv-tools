@@ -18,11 +18,7 @@ import argparse
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "mesh_path", 
-    type=str, 
-    help="Path to the mesh file"
-)
+parser.add_argument("mesh_path", type=str, help="Path to the mesh file")
 
 parser.add_argument(
     "--vrephoto_dir",
@@ -60,7 +56,7 @@ parser.add_argument(
     type=float,
     nargs="+",
     default=[0, 0, 0, 0, 0, 0],
-    help="Margin from the mesh bounding box limits (X-,Y-,Z-,X+,Y+,Z+)",
+    help="Margin from the mesh axis-aligned bounding box limits (X-,Y-,Z-,X+,Y+,Z+)  (positive numbers mean smaller bounding box size)",
 )
 parser.add_argument(
     "--ang_sampling_num",
@@ -99,27 +95,27 @@ parser.add_argument(
     "--zm_limits",
     type=float,
     nargs="+",
-    default=[0.6, 5],
-    help="Distance of the camera center from the floor (-Z)",
+    default=[0.0, 1000.0],
+    help="Distance of the camera center from the floor (-Z) - min and max limits",
 )
 parser.add_argument(
     "--zp_limits",
     type=float,
     nargs="+",
-    default=[0.6, 5],
-    help="Distance of the camera center from the ceiling (+Z)",
+    default=[0, -1],
+    help="Distance of the camera center from the ceiling (+Z) - min and max limits (if the max limit is negative, it is not evaluated --> use for scenes without ceiling)",
 )
 parser.add_argument(
     "--xy_limits",
     type=float,
     nargs="+",
-    default=[0.2, 1000.0],
+    default=[0.1, 1000.0],
     help="Distance of the camera center from the walls (X,Y)",
 )
 parser.add_argument(
     "--xy_valid_samples",
     type=int,
-    default=4,
+    default=0,
     help="Number of horizontal samples which have to be within the xy_limits from walls",
 )
 parser.add_argument(
@@ -134,7 +130,7 @@ parser.add_argument(
     "--d_limits",
     type=float,
     nargs="+",
-    default=[2.5, 1000],
+    default=[1.0, 1000],
     help="Limits on the length of the camera principal ray",
 )
 
@@ -160,9 +156,24 @@ parser.add_argument(
 
 # - visualization
 parser.add_argument(
-    "--dont_visualize",
-    action="store_true",
+    "--vis_mode",
+    type=str,
+    default="final_poses",
+    choices=["off", "bbox", "init_centers", "final_poses"],
     help="Do not visualize the generated camera poses.",
+)
+parser.add_argument(
+    "--vis_cam_scale",
+    type=float,
+    default=0.1,
+    help="Scale of the camera frustum in the visualization",
+)
+parser.add_argument(
+    "--background_color",
+    type=float,
+    default=[1.0, 1.0, 1.0],
+    nargs="+",
+    help="Background color of the visualization - default: %(default)s",
 )
 
 
@@ -239,7 +250,7 @@ def main(args):
 
     print("- casting rays around the initial camera positions")
     # -X, -Y, -Z, +X, +Y, +Z
-    ray_directions = np.hstack((-np.eye(3), np.eye(3)))
+    ray_directions_xyz = np.hstack((-np.eye(3), np.eye(3)))
     zm_idx = np.tile([False, False, True, False, False, False], (pos_samples.shape[1]))
     zp_idx = np.tile([False, False, False, False, False, True], (pos_samples.shape[1]))
     xy_idx = np.tile([True, True, False, True, True, False], (pos_samples.shape[1]))
@@ -248,21 +259,21 @@ def main(args):
     scene = o3d.t.geometry.RaycastingScene()
     mesh_id = scene.add_triangles(o3d.t.geometry.TriangleMesh.from_legacy(mesh))
 
-    ray_centers = np.repeat(pos_samples, ray_directions.shape[1], axis=1)
-    ray_directions = np.tile(ray_directions, (1, pos_samples.shape[1]))
+    ray_centers = np.repeat(pos_samples, ray_directions_xyz.shape[1], axis=1)
+    ray_directions_xyz = np.tile(ray_directions_xyz, (1, pos_samples.shape[1]))
     rays = o3d.core.Tensor(
-        np.vstack((ray_centers, ray_directions)).T, dtype=o3d.core.Dtype.Float32
+        np.vstack((ray_centers, ray_directions_xyz)).T, dtype=o3d.core.Dtype.Float32
     )
 
     rc_dict = scene.cast_rays(rays)
 
     print("- filtering the initial camera positions")
-    ray_lengths = rc_dict["t_hit"].numpy()
-    hit_normals = rc_dict["primitive_normals"].numpy().T
+    ray_lengths_xyz = rc_dict["t_hit"].numpy()
+    hit_normals_xyz = rc_dict["primitive_normals"].numpy().T
 
-    zm_ray_lenghts = ray_lengths[zm_idx]
-    zp_ray_lenghts = ray_lengths[zp_idx]
-    xy_ray_lenghts = ray_lengths[xy_idx]
+    zm_ray_lenghts = ray_lengths_xyz[zm_idx]
+    zp_ray_lenghts = ray_lengths_xyz[zp_idx]
+    xy_ray_lenghts = ray_lengths_xyz[xy_idx]
 
     zm_valid = np.logical_and(
         zm_ray_lenghts >= args.zm_limits[0], zm_ray_lenghts <= args.zm_limits[1]
@@ -281,10 +292,17 @@ def main(args):
     if args.check_normals:
         # - the normal of the mesh and the ray direction should point into opposite directions
         #   - if the ray did not hit anything, the normal is zero vector
-        normals_valid = np.einsum("ij,ij->j", ray_directions, hit_normals) <= 0.0
+        normals_valid = (
+            np.einsum("ij,ij->j", ray_directions_xyz, hit_normals_xyz) <= 0.0
+        )
         zm_valid = np.logical_and(zm_valid, normals_valid[zm_idx])
         zp_valid = np.logical_and(zp_valid, normals_valid[zp_idx])
         xy_valid = np.logical_and(xy_valid, normals_valid[xy_idx])
+
+    print("- numbers of camera centers fulfilling the conditions:")
+    print("  - valid Z-: {:d}".format(np.count_nonzero(zm_valid)))
+    print("  - valid Z+: {:d}".format(np.count_nonzero(zp_valid)))
+    print("  - valid XY: {:d}".format(np.count_nonzero(xy_valid)))
 
     xy_valid = np.reshape(xy_valid, (-1, 4))
     xy_valid = np.sum(xy_valid, axis=1) >= args.xy_valid_samples
@@ -292,14 +310,12 @@ def main(args):
     valid_samples = np.logical_and(np.logical_and(zm_valid, zp_valid), xy_valid)
     pos_samples = pos_samples[:, valid_samples]
 
-    valid_cam_positions = copy.deepcopy(pos_samples)
-
     print("- generated {:d} valid camera positions".format(pos_samples.shape[1]))
 
     # - generate the initial camera orientations
     print("- generating the initial camera orientations")
     cams_T = np.empty((4, 4, 0), dtype=np.float32)
-    ray_directions = np.empty((3, 0), dtype=np.float32)
+    ray_directions_d = np.empty((3, 0), dtype=np.float32)
 
     if args.ang_sampling_mode in [
         "regular",
@@ -368,7 +384,7 @@ def main(args):
     cams_T[0:3, 3, :] = t
 
     # TODO: test multiple rays per view to find views looking into empty space
-    ray_directions = np.swapaxes(
+    ray_directions_d = np.swapaxes(
         np.squeeze(
             np.linalg.inv(R_yaw) @ np.linalg.inv(R_pitch) @ np.array([[0, 0, 1]]).T
         ),
@@ -378,17 +394,17 @@ def main(args):
 
     print("- casting the principal camera rays")
     rays = o3d.core.Tensor(
-        np.vstack((pos_samples, ray_directions)).T, dtype=o3d.core.Dtype.Float32
+        np.vstack((pos_samples, ray_directions_d)).T, dtype=o3d.core.Dtype.Float32
     )
 
     rc_dict = scene.cast_rays(rays)
 
     print("- filtering the initial camera orientations")
-    ray_lengths = rc_dict["t_hit"].numpy()
+    ray_lengths_d = rc_dict["t_hit"].numpy()
 
-    d_valid_min = ray_lengths >= args.d_limits[0]
+    d_valid_min = ray_lengths_d >= args.d_limits[0]
     if args.d_limits[1] > 0:
-        d_valid_max = ray_lengths <= args.d_limits[1]
+        d_valid_max = ray_lengths_d <= args.d_limits[1]
     else:
         d_valid_max = np.full_like(d_valid_min, True)
     d_valid = np.logical_and(d_valid_min, d_valid_max)
@@ -415,7 +431,7 @@ def main(args):
             args.img_height,
         )
 
-    if not (args.dont_visualize):
+    if args.vis_mode != "off":
         print("- visualizing")
         # Visualization
         vis = o3d.visualization.Visualizer()
@@ -424,52 +440,96 @@ def main(args):
         # - world CS
         o3d_world_cs = o3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0)
 
-        # - principal axis rays
-        finite_rays = np.isfinite(ray_lengths)
-        ray_lengths = ray_lengths[finite_rays]
-        ray_directions = ray_directions[:, finite_rays]
-        pos_samples = pos_samples[:, finite_rays]
-
-        o3d_ray_corrs = [(i, i) for i in range(pos_samples.shape[1])]
-        o3d_origins = o3d.geometry.PointCloud()
-        o3d_origins.points = o3d.utility.Vector3dVector(pos_samples.T)
-        o3d_hits = o3d.geometry.PointCloud()
-        o3d_hits.points = o3d.utility.Vector3dVector(
-            (pos_samples + (ray_directions * ray_lengths)).T
-        )
-
-        o3d_rays = o3d.geometry.LineSet.create_from_point_cloud_correspondences(
-            o3d_origins, o3d_hits, o3d_ray_corrs
-        )
-        o3d_rays.paint_uniform_color([0.0, 0.0, 0.6])
-        vis.add_geometry(o3d_rays)
-
-        # - valid camera poses
-        for cam_i in np.arange(cams_T.shape[2]):
-            o3d_cam_point = o3d.geometry.TriangleMesh.create_sphere(radius=0.1)
-            o3d_cam_point.paint_uniform_color([0.0, 0.4, 0.2])
-            T = np.eye(4)
-            T[0:3, 3] = cams_T[0:3, 3, cam_i]
-            o3d_cam_point.transform(T)
-            # vis.add_geometry(o3d_cam_point)
-
-            o3d_cam_cs = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2)
-            T = cams_T[:, :, cam_i]
-            o3d_cam_cs.transform(T)
-            vis.add_geometry(o3d_cam_cs)
-
-            K = np.array(
-                [
-                    [args.cam_foclen, 0, args.img_width / 2],
-                    [0, args.cam_foclen, args.img_height / 2],
-                    [0, 0, 1],
-                ]
+        if args.vis_mode in ["bbox", "init_centers"]:
+            aabb_orig = o3d.geometry.AxisAlignedBoundingBox(
+                min_bound=mesh.get_min_bound(), max_bound=mesh.get_max_bound()
             )
-            T = np.linalg.inv(cams_T[:, :, cam_i])
-            o3d_cam_vis = o3d.geometry.LineSet.create_camera_visualization(
-                args.img_width, args.img_height, K, T, scale=0.1
+            aabb_adjusted = o3d.geometry.AxisAlignedBoundingBox(
+                min_bound=mesh_min_bounds, max_bound=mesh_max_bounds
             )
-            vis.add_geometry(o3d_cam_vis)
+            aabb_orig.color = [0.5, 0.5, 0.5]
+            aabb_adjusted.color = [1.0, 0.0, 0.0]
+            vis.add_geometry(aabb_orig)
+            vis.add_geometry(aabb_adjusted)
+
+        if args.vis_mode == "init_centers":
+            for cam_i in np.arange(init_cam_positions.shape[1]):
+                o3d_cam_point = o3d.geometry.TriangleMesh.create_sphere(radius=0.1)
+                o3d_cam_point.paint_uniform_color([0.4, 0.2, 0.0])
+                T = np.eye(4)
+                T[0:3, 3] = init_cam_positions[:, cam_i]
+                o3d_cam_point.transform(T)
+                vis.add_geometry(o3d_cam_point)
+
+            # - XYZ rays from initial positions
+            finite_rays = np.isfinite(ray_lengths_xyz)
+            ray_lengths_xyz = ray_lengths_xyz[finite_rays]
+            ray_directions_xyz = ray_directions_xyz[:, finite_rays]
+            init_cam_positions = np.repeat(init_cam_positions, 6, axis=1)
+            init_cam_positions = init_cam_positions[:, finite_rays]
+
+            o3d_ray_corrs = [(i, i) for i in range(init_cam_positions.shape[1])]
+            o3d_origins = o3d.geometry.PointCloud()
+            o3d_origins.points = o3d.utility.Vector3dVector(init_cam_positions.T)
+            o3d_hits = o3d.geometry.PointCloud()
+            o3d_hits.points = o3d.utility.Vector3dVector(
+                (init_cam_positions + (ray_directions_xyz * ray_lengths_xyz)).T
+            )
+
+            o3d_rays = o3d.geometry.LineSet.create_from_point_cloud_correspondences(
+                o3d_origins, o3d_hits, o3d_ray_corrs
+            )
+            o3d_rays.paint_uniform_color([0.25, 0.6, 1.0])
+            vis.add_geometry(o3d_rays)
+
+        elif args.vis_mode == "final_poses":
+            # - principal axis rays
+            finite_rays = np.isfinite(ray_lengths_d)
+            ray_lengths_d = ray_lengths_d[finite_rays]
+            ray_directions_d = ray_directions_d[:, finite_rays]
+            pos_samples = pos_samples[:, finite_rays]
+
+            o3d_ray_corrs = [(i, i) for i in range(pos_samples.shape[1])]
+            o3d_origins = o3d.geometry.PointCloud()
+            o3d_origins.points = o3d.utility.Vector3dVector(pos_samples.T)
+            o3d_hits = o3d.geometry.PointCloud()
+            o3d_hits.points = o3d.utility.Vector3dVector(
+                (pos_samples + (ray_directions_d * ray_lengths_d)).T
+            )
+
+            o3d_rays = o3d.geometry.LineSet.create_from_point_cloud_correspondences(
+                o3d_origins, o3d_hits, o3d_ray_corrs
+            )
+            o3d_rays.paint_uniform_color([0.25, 0.6, 1.0])
+            vis.add_geometry(o3d_rays)
+
+            # - valid camera poses
+            for cam_i in np.arange(cams_T.shape[2]):
+                o3d_cam_point = o3d.geometry.TriangleMesh.create_sphere(radius=0.1)
+                o3d_cam_point.paint_uniform_color([0.0, 0.4, 0.2])
+                T = np.eye(4)
+                T[0:3, 3] = cams_T[0:3, 3, cam_i]
+                o3d_cam_point.transform(T)
+                # vis.add_geometry(o3d_cam_point)
+
+                o3d_cam_cs = o3d.geometry.TriangleMesh.create_coordinate_frame(size=0.2)
+                T = cams_T[:, :, cam_i]
+                o3d_cam_cs.transform(T)
+                vis.add_geometry(o3d_cam_cs)
+
+                K = np.array(
+                    [
+                        [args.cam_foclen, 0, args.img_width / 2],
+                        [0, args.cam_foclen, args.img_height / 2],
+                        [0, 0, 1],
+                    ]
+                )
+                T = np.linalg.inv(cams_T[:, :, cam_i])
+                o3d_cam_vis = o3d.geometry.LineSet.create_camera_visualization(
+                    args.img_width, args.img_height, K, T, scale=args.vis_cam_scale
+                )
+                o3d_cam_vis.paint_uniform_color([0.25, 0.6, 1.0])
+                vis.add_geometry(o3d_cam_vis)
 
         # - model mesh
         o3d_mesh = copy.deepcopy(mesh)
@@ -485,6 +545,7 @@ def main(args):
         vis.add_geometry(o3d_world_cs)
         vis.add_geometry(o3d_mesh)
 
+        vis.get_render_option().background_color = np.array(args.background_color)
         vis.run()
 
 
