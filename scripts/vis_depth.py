@@ -92,6 +92,13 @@ parser.add_argument(
     action="store_true",
     help="Hide elements outside of set palette limits",
 )
+parser.add_argument(
+    "--background_color",
+    type=float,
+    default=[255 / 255, 255 / 255, 255 / 255],
+    nargs="+",
+    help="Background color of the visualization - default: %(default)s",
+)
 
 parser.add_argument(
     "--output_image", 
@@ -277,6 +284,7 @@ def main(args):
             vis = o3d.visualization.Visualizer()
             vis.create_window()
             vis.add_geometry(pcd)
+            vis.get_render_option().background_color = np.array(args.background_color)
             vis.run()
 
 
