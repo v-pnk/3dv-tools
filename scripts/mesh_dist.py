@@ -86,6 +86,13 @@ parser.add_argument(
     help="Do not show the mesh visualization"
 )
 parser.add_argument(
+    "--background_color",
+    type=float,
+    default=[255 / 255, 255 / 255, 255 / 255],
+    nargs="+",
+    help="Background color of the visualization - default: %(default)s",
+)
+parser.add_argument(
     "--dist_path", 
     type=str, 
     help="Path for saving the computed distances in .npy file"
@@ -157,6 +164,9 @@ def main(args):
     # dists ~ [N x 1]
     dists.flatten()
 
+    print("- min dist: {:.3f}".format(np.min(dists)))
+    print("- max dist: {:.3f}".format(np.max(dists)))
+
     if args.show_dist_hist:
         plt.hist(100.0 * dists, bins=100, density=True, color=(0.002, 0.709, 0.923))
         if args.min_dist is not None:
@@ -195,6 +205,7 @@ def main(args):
         vis.add_geometry(mesh_A)
 
         vis.get_render_option().mesh_show_back_face = True
+        vis.get_render_option().background_color = np.array(args.background_color)
         vis.run()
 
 
