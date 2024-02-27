@@ -110,8 +110,8 @@ parser.add_argument(
         "grad-z",
         "normals",
     ],
-    default="grad+z",
-    help="Mesh coloring mode - monochromatic / texture / gradient along x/y/z axis / normals",
+    default="texture",
+    help="Mesh coloring mode - monochromatic / texture (works also for vertex-colored meshes) / gradient along x/y/z axis / normals",
 )
 parser.add_argument(
     "--shading",
@@ -187,6 +187,7 @@ def main(args):
                     )
 
                 elif args.mesh_vis_mode == "normals":
+                    model_mesh.compute_vertex_normals(normalized=True)
                     model_mesh_vertex_normals = 0.5 * (
                         np.asarray(model_mesh.vertex_normals) + 1.0
                     )
