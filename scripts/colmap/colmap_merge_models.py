@@ -153,34 +153,27 @@ def merge_models(models, img_names_map):
                 cam_id_map[cam.camera_id] = merged_cam.camera_id
             else:
                 cam_id_map[cam.camera_id] = max_cam_id
+
                 cam.camera_id = max_cam_id
                 max_cam_id += 1
+                
                 merged_model.add_camera(cam)
 
         for img in model.images.values():
             if img_names_map[model_idx][img.name] is not None:
-                img_new = pycolmap.Image()
-                img_new.name = img_names_map[model_idx][img.name]
-                print("C")
-                print("{} --> {}".format(img.camera_id, cam_id_map[img.camera_id]))
-                # Does not work due to bug in pycolmap (https://github.com/colmap/pycolmap/issues/154)
-                img_new.camera_id = cam_id_map[img.camera_id]
-                img_cam = merged_model.cameras[cam_id_map[img.camera_id]]
-                img_new.set_up(img_cam)
-                print("D")
-                img_new.image_id = max_img_id
+                img_new = pycolmap.Image(
+                    name=img_names_map[model_idx][img.name],
+                    camera_id = cam_id_map[img.camera_id],
+                    id=max_img_id,
+                    points2D=img.points2D, # TODO: fix 3D point indices
+                    qvec=img.qvec,
+                    tvec=img.tvec,
+                    )
+                merged_model.add_image(img_new)
+
                 img_id_map[img.image_id] = max_img_id
                 max_img_id += 1
-                img_new.points2D = img.points2D  # TODO: fix 3D point indices
-                img_new.qvec = img.qvec
-                img_new.tvec = img.tvec
 
-                print("---")
-                print(img.camera_id)
-
-                print("A")
-                merged_model.add_image(img_new)
-                print("B")
         for pnt3_id, pnt3 in model.points3D.items():
             track_new = pycolmap.Track()
             for te in pnt3.track:
