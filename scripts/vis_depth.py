@@ -148,6 +148,7 @@ def main(args):
     depth_img = args.depth_multiplier * depth_img
 
     depth_img = np.expand_dims(depth_img, axis=2)
+    depth_img = depth_img.astype(np.float32)
     depth_raw = o3d.geometry.Image(depth_img)
     depth_width = depth_img.shape[0]
     depth_height = depth_img.shape[1]
