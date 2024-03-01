@@ -97,6 +97,12 @@ parser.add_argument(
     help="Function which to apply to the values in cam_color_file",
 )
 parser.add_argument(
+    "--every_nth_cam",
+    default=1,
+    type=int,
+    help="Visualize only every n-th camera",
+)
+parser.add_argument(
     "--mesh_vis_mode",
     type=str,
     choices=[
@@ -232,6 +238,14 @@ def main(args):
 
         num_dirs += 1
 
+    # - show only every n-th camera
+    for cam_dir_i in cameras.keys():
+        cam_i = 0
+        for cam_name in list(cameras[cam_dir_i].keys()):
+            if cam_i % args.every_nth_cam != 0:
+                del cameras[cam_dir_i][cam_name]
+            cam_i += 1
+
     if args.pairs_file is not None:
         pairs = parse_pairs_file(args.pairs_file)
 
@@ -301,6 +315,7 @@ def main(args):
 
 
 def filter_if_too_far(cameras, aabb_center, max_side, max_cam_dist):
+    mark_for_deletion = []
     for cam_dir_i in cameras.keys():
         for cam_i in cameras[cam_dir_i]:
             R = cameras[cam_dir_i][cam_i]["T"][0:3, 0:3]
@@ -308,7 +323,10 @@ def filter_if_too_far(cameras, aabb_center, max_side, max_cam_dist):
             C = -R.T @ t
             C_dist = np.sqrt(np.sum((aabb_center - C) ** 2))
             if C_dist > max_cam_dist * max_side:
-                del cameras[cam_dir_i][cam_i]
+                mark_for_deletion.append((cam_dir_i, cam_i))
+
+    for cam_dir_i, cam_i in mark_for_deletion:
+        del cameras[cam_dir_i][cam_i]
 
 
 def load_color_file(input_path, cameras, args):
