@@ -36,6 +36,12 @@ parser.add_argument(
     type=float,
     help="Camera focal length used for the back-projection to point cloud",
 )
+parser.add_argument(
+    "--principal_point",
+    type=float,
+    nargs="+",
+    help="Camera principal point used for the back-projection to point cloud - default: [w/2, h/2]",
+)
 
 parser.add_argument(
     "--visualize_depth", 
@@ -245,8 +251,15 @@ def main(args):
         Y, X = np.where(depth_map > 0.0)
         num_valid = np.count_nonzero(depth_map)
         xyz = np.ones((num_valid, 3))
-        xyz[:, 0] = X.astype(np.float32) - depth_map.shape[1] / 2.0
-        xyz[:, 1] = Y.astype(np.float32) - depth_map.shape[0] / 2.0
+        
+        if args.principal_point is not None:
+            assert len(args.principal_point) == 2, "Principal point must have 2 elements (x, y)"
+            principal_point = args.principal_point
+        else:
+            principal_point = [0.5 * depth_map.shape[1], 0.5 * depth_map.shape[0]]
+
+        xyz[:, 0] = X.astype(np.float32) - principal_point[0]
+        xyz[:, 1] = Y.astype(np.float32) - principal_point[1]
         xyz[:, 2] = args.focal_length
 
         if args.depth_mode == "depth":
