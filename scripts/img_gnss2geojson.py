@@ -31,11 +31,13 @@ parser.add_argument(
 parser.add_argument(
     "geojson_file", 
     type=str, 
-    help="Path to the GeoJSON file")
+    help="Path to the GeoJSON file"    
+)
 parser.add_argument(
     "--color_mode",
     type=str,
     choices=["timestamp", "month"],
+    default="timestamp",
     help="Mode of coloring of the points",
 )
 parser.add_argument(
@@ -76,6 +78,9 @@ def main(args):
                 "longitude": longitude,
                 "color": (0, 0, 0),
             }
+        else:
+            print("  - no GNSS data in: {}".format(name_i))
+            continue
 
         if "EXIF:DateTimeOriginal" in meta_i.keys():
             dt = datetime.strptime(meta_i["EXIF:DateTimeOriginal"], "%Y:%m:%d %H:%M:%S")
@@ -98,6 +103,12 @@ def main(args):
             for key in img_metadata_all.keys()
             if img_metadata_all[key]["datetime"].month in months
         }
+
+        if len(img_metadata_all) == 0:
+            print("No images found for the specified month range")
+            return
+        else:
+            print("Found {} images for the specified month range".format(len(img_metadata_all)))
 
     print("- coloring points")
     if args.color_mode == "timestamp":
