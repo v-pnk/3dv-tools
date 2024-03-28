@@ -16,12 +16,13 @@ https://github.com/v-pnk/long-img-org
 
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import math
 import json
 import argparse
 import xml.etree.ElementTree as ET
+from tqdm import tqdm
 
 import numpy as np
 import cv2
@@ -66,11 +67,24 @@ parser.add_argument(
     help="Resolution ratio used for downsampling the frames - can be in (0.0 - 1.0) range",
 )
 parser.add_argument(
+    "--image_eq",
+    action="store_true",
+    help="Equalize the histogram of the extracted frames",
+)
+
+parser.add_argument(
     "--geo_mode",
     type=str,
-    default="full",
+    default="only_frames",
     choices=["full", "only_frames"],
     help="Which data to include in the GeoJSON / GPX file - full log from the SRT file or only the positions of the extracted video frames",
+)
+parser.add_argument(
+    "--geo_write_mode",
+    type=str,
+    default="a",
+    choices=["a", "w"],
+    help="If the output GeoJSON / GPX file exists, append (a) or overwrite it (w)",
 )
 
 
@@ -79,18 +93,23 @@ def main(args):
     timestamps, coords_wgs84, frame_metadata = load_dji_srt_file(args.dji_srt_path)
 
     if args.video_path is not None:
-        print("Extracting frames from the video...")
-        frames, frame_idx_list = extract_frames(
-            args.video_path, frame_rate=args.frame_rate, res_ratio=args.res_ratio
-        )
         print("Parsing video metadata...")
         video_metadata = get_metadata(args.video_path)
+        frame_idx_list = []
 
         with exiftool.ExifToolHelper() as et:
-            print("Writing the frames to the output directory...")
-            for frame, idx in zip(frames, frame_idx_list):
+            print("Extracting the frames and writing to the output directory...")
+            for frame, idx in tqdm(extract_frames(args.video_path, 
+                                                  frame_rate=args.frame_rate, 
+                                                  res_ratio=args.res_ratio)):
+
+                frame_idx_list.append(idx)
                 image_name = time_to_name(timestamps[idx])
                 image_path = os.path.join(args.frame_dir, image_name + ".jpg")
+                
+                if args.image_eq:
+                    frame["image"] = equalize_img(frame["image"])
+
                 cv2.imwrite(image_path, frame["image"])
                 del frame["image"]
 
@@ -117,7 +136,19 @@ def main(args):
 
                 et.set_tags(image_path, exif_tags, params=["-overwrite_original"])
     else:
-        frame_idx_list = list(range(len(timestamps)))
+        frame_idx_list = []
+        ideal_capture_time = timestamps[0]
+        frame_period = timedelta(seconds=1.0 / args.frame_rate)
+        
+        for frame_idx, this_time in enumerate(timestamps):
+            next_time = this_time + frame_period
+
+            if abs((this_time - ideal_capture_time).total_seconds()) < abs((next_time - ideal_capture_time).total_seconds()):
+                frame_idx_list.append(frame_idx)
+                ideal_capture_time += frame_period
+
+    print(frame_idx_list)
+
 
     if args.geojson_path is not None:
         if args.geo_mode == "full":
@@ -230,12 +261,10 @@ def extract_frames(video_path, frame_rate=1, res_ratio=1.0):
     frame_rate (float): Frame rate for the extraction (frames per second).
 
 
-    Returns:
-    frames (list): List of frames with valid capture times.
-    framed_idx_list (list): List of frame indices.
+    Yields:
+    data (dict): Data dictionary containing the frame and original size.
+    frame_idx (int): Frame index.
     """
-
-    frames = []
 
     # Open the video file
     cap = cv2.VideoCapture(video_path)
@@ -245,7 +274,6 @@ def extract_frames(video_path, frame_rate=1, res_ratio=1.0):
     ideal_capture_time = 0.0
     success, frame = cap.read()
 
-    framed_idx_list = []
     frame_idx = 0
     while success:
         this_time = cap.get(cv2.CAP_PROP_POS_MSEC) / 1000
@@ -263,22 +291,22 @@ def extract_frames(video_path, frame_rate=1, res_ratio=1.0):
                     fy=res_ratio,
                     interpolation=cv2.INTER_AREA,
                 )
+            else:
+                frame_resized = frame
 
             data["image"] = frame_resized
             data["orig_width"] = frame.shape[1]
             data["orig_height"] = frame.shape[0]
 
-            frames.append(data)
+            # frames.append(data)
             ideal_capture_time += 1.0 / frame_rate
 
-            framed_idx_list.append(frame_idx)
+            yield data, frame_idx
 
         success, frame = cap.read()
         frame_idx += 1
 
     cap.release()
-
-    return frames, framed_idx_list
 
 
 def get_metadata(video_path):
@@ -419,7 +447,26 @@ def sec_frac_to_apex(sec_frac: str):
     return -math.log2(seconds)
 
 
-def write_geojson(file_path, coords_wgs84, timestamps):
+def equalize_img(img):
+    """Equalize the histogram of the image.
+
+    Parameters:
+    img (np.ndarray): The input image.
+
+    Returns:
+    img_eq (np.ndarray): The image with equalized histogram.
+
+    """
+
+    img_yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
+    # equalize the histogram of the luma component
+    img_yuv[:, :, 0] = cv2.equalizeHist(img_yuv[:, :, 0])
+    img_eq = cv2.cvtColor(img_yuv, cv2.COLOR_YCrCb2BGR)
+
+    return img_eq
+
+
+def write_geojson(file_path, coords_wgs84, timestamps, write_mode="a"):
     """Write the location points to a GeoJSON file.
 
     Parameters:
@@ -429,10 +476,14 @@ def write_geojson(file_path, coords_wgs84, timestamps):
 
     """
 
-    geojson_data = {
-        "type": "FeatureCollection",
-        "features": [],
-    }
+    if write_mode == "a" and os.path.exists(file_path):
+        with open(file_path, "rt") as f:
+            geojson_data = json.load(f)
+    else:
+        geojson_data = {
+            "type": "FeatureCollection",
+            "features": [],
+        }
 
     for i in range(len(timestamps)):
         feature = {
@@ -470,7 +521,7 @@ def write_geojson(file_path, coords_wgs84, timestamps):
         json.dump(geojson_data, f, indent=4)
 
 
-def write_gpx(file_path, coords_wgs84, timestamps):
+def write_gpx(file_path, coords_wgs84, timestamps, write_mode="a"):
     """Write the location points to a GPX file.
 
     Parameters:
@@ -480,14 +531,20 @@ def write_gpx(file_path, coords_wgs84, timestamps):
 
     """
 
-    gpx = ET.Element(
-        "gpx",
-        attrib={
-            "version": "1.1",
-            "creator": "3DV-Tools: DJI SRT Tools - https://github.com/v-pnk/3dv-tools",
-        },
-    )
-    trk = ET.SubElement(gpx, "trk")
+    if write_mode == "a" and os.path.exists(file_path):
+        tree = ET.parse(file_path)
+        trk = tree.find("trk")
+    else:
+        gpx = ET.Element(
+            "gpx",
+            attrib={
+                "version": "1.1",
+                "creator": "3DV-Tools: DJI SRT Tools - https://github.com/v-pnk/3dv-tools",
+            },
+        )
+        tree = ET.ElementTree(gpx)
+        trk = ET.SubElement(gpx, "trk")
+    
     trkseg = ET.SubElement(trk, "trkseg")
 
     for i in range(len(timestamps)):
@@ -501,7 +558,6 @@ def write_gpx(file_path, coords_wgs84, timestamps):
         )
         ET.SubElement(trkpt, "ele").text = str(coords_wgs84[2, i])
 
-    tree = ET.ElementTree(gpx)
     tree.write(file_path, encoding="UTF-8", xml_declaration=True)
 
 
