@@ -68,8 +68,10 @@ parser.add_argument(
 )
 parser.add_argument(
     "--image_eq",
-    action="store_true",
-    help="Equalize the histogram of the extracted frames",
+    type=str,
+    choices=["off", "global", "clahe"],
+    default="off",
+    help="Mode of histogram equalization of the extracted frames - off / global / clahe",
 )
 
 parser.add_argument(
@@ -93,6 +95,8 @@ def main(args):
     timestamps, coords_wgs84, frame_metadata = load_dji_srt_file(args.dji_srt_path)
 
     if args.video_path is not None:
+        assert os.path.exists(args.video_path), "The given video file does not exist: {}".format(args.video_path)
+
         print("Parsing video metadata...")
         video_metadata = get_metadata(args.video_path)
         frame_idx_list = []
@@ -107,8 +111,8 @@ def main(args):
                 image_name = time_to_name(timestamps[idx])
                 image_path = os.path.join(args.frame_dir, image_name + ".jpg")
                 
-                if args.image_eq:
-                    frame["image"] = equalize_img(frame["image"])
+                if args.image_eq != "off":
+                    frame["image"] = equalize_img(frame["image"], args.image_eq)
 
                 cv2.imwrite(image_path, frame["image"])
                 del frame["image"]
@@ -139,15 +143,13 @@ def main(args):
         frame_idx_list = []
         ideal_capture_time = timestamps[0]
         frame_period = timedelta(seconds=1.0 / args.frame_rate)
-        
+
         for frame_idx, this_time in enumerate(timestamps):
             next_time = this_time + frame_period
 
             if abs((this_time - ideal_capture_time).total_seconds()) < abs((next_time - ideal_capture_time).total_seconds()):
                 frame_idx_list.append(frame_idx)
                 ideal_capture_time += frame_period
-
-    print(frame_idx_list)
 
 
     if args.geojson_path is not None:
@@ -447,11 +449,13 @@ def sec_frac_to_apex(sec_frac: str):
     return -math.log2(seconds)
 
 
-def equalize_img(img):
+def equalize_img(img, mode):
     """Equalize the histogram of the image.
 
     Parameters:
     img (np.ndarray): The input image.
+    mode (str): Mode of histogram equalization - simple global histogram 
+        equalization or CLAHE
 
     Returns:
     img_eq (np.ndarray): The image with equalized histogram.
@@ -460,7 +464,15 @@ def equalize_img(img):
 
     img_yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
     # equalize the histogram of the luma component
-    img_yuv[:, :, 0] = cv2.equalizeHist(img_yuv[:, :, 0])
+
+    if mode == "clahe":
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        img_yuv[:, :, 0] = clahe.apply(img_yuv[:, :, 0])
+    elif mode == "global":
+        img_yuv[:, :, 0] = cv2.equalizeHist(img_yuv[:, :, 0])
+    else:
+        raise ValueError("Invalid mode: {}".format(mode))
+
     img_eq = cv2.cvtColor(img_yuv, cv2.COLOR_YCrCb2BGR)
 
     return img_eq
