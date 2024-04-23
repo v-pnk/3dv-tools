@@ -6,6 +6,11 @@ Following is a list of the scripts in this repository, roughly ordered by their 
 
 - [blur_eval.py](scripts/blur_eval.py) - Compute a blur metric (avg. of local std. dev.) for given images.
 - [img_img_psnr.py](scripts/img_img_psnr.py) - Compute PSNR between two images.
+- [img_adj_gamma.py](scripts/img_adj_gamma.py) - Apply gamma correction on given a image.
+- [img_eqhist.py](scripts/img_eqhist.py) - Apply global histogram equalization or CLAHE on a given image.
+- [img_filt_bilat.py](scripts/img_filt_bilat.py) - Apply bilateral filter on a given image.
+- [img_filt_gauss.py](scripts/img_filt_gauss.py) - Apply Gaussian filter on a given image.
+- [img_filt_med.py](scripts/img_filt_med.py) - Apply median filter on a given image.
 - [color_view.py](scripts/color_view.py) - Visualize a color in terminal based on RGB or HEX values.
 - [matplotlib_colormap.py](scripts/matplotlib_colormap.py) - Get color samples from a Matplotlib colormap.
 - [cam_poses_environment.py](scripts/cam_poses_environment.py) - Sample camera poses for rendering of an outdoor or indoor environment 3D mesh model.
