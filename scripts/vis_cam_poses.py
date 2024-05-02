@@ -160,6 +160,27 @@ def main(args):
             aabb_center = aabb.get_center()
             vis.get_view_control().set_lookat(aabb_center)
             max_side = np.max(aabb.get_extent())
+        elif os.path.isdir(args.model_path) and (os.path.exists(os.path.join(args.model_path, "points3D.bin")) or os.path.exists(os.path.join(args.model_path, "points3D.txt"))):
+            import pycolmap
+
+            model = pycolmap.Reconstruction(args.model_path)
+
+            pnts3d = np.empty((len(model.points3D), 3))
+            colors = 0.5*np.ones((len(model.points3D), 3))
+            
+            for pnt3d_idx, point3D in enumerate(model.points3D.values()):
+                pnts3d[pnt3d_idx] = point3D.xyz
+                colors[pnt3d_idx] = point3D.color / 255.0
+
+            model_pcd = o3d.geometry.PointCloud()
+            model_pcd.points = o3d.utility.Vector3dVector(pnts3d)
+            model_pcd.colors = o3d.utility.Vector3dVector(colors)
+            vis.add_geometry(model_pcd)
+
+            aabb = model_pcd.get_axis_aligned_bounding_box()
+            aabb_center = aabb.get_center()
+            vis.get_view_control().set_lookat(aabb_center)
+            max_side = np.max(aabb.get_extent())
         else:
             # Color the mesh
             if args.mesh_vis_mode == "texture":
@@ -215,28 +236,29 @@ def main(args):
 
     num_dirs = 0
     cameras = {}
-    for cam_dir_i, cam_dir in enumerate(args.cam_defs):
-        cam_defs_type = get_cam_defs_type(cam_dir)
+    if args.cam_defs is not None:
+        for cam_dir_i, cam_dir in enumerate(args.cam_defs):
+            cam_defs_type = get_cam_defs_type(cam_dir)
 
-        if cam_defs_type == "vrephoto":
-            cameras[cam_dir_i] = load_vrephoto(cam_dir)
+            if cam_defs_type == "vrephoto":
+                cameras[cam_dir_i] = load_vrephoto(cam_dir)
 
-        elif cam_defs_type == "pgt_posefile":
-            cameras[cam_dir_i] = load_pgt_posefile(cam_dir)
+            elif cam_defs_type == "pgt_posefile":
+                cameras[cam_dir_i] = load_pgt_posefile(cam_dir)
 
-        elif cam_defs_type == "colmap":
-            cameras[cam_dir_i] = load_colmap(cam_dir)
+            elif cam_defs_type == "colmap":
+                cameras[cam_dir_i] = load_colmap(cam_dir)
 
-        elif cam_defs_type == "ns_cam_traj":
-            cameras[cam_dir_i] = load_ns_cam_traj(cam_dir)
+            elif cam_defs_type == "ns_cam_traj":
+                cameras[cam_dir_i] = load_ns_cam_traj(cam_dir)
 
-        elif cam_defs_type == "subdir":
-            args.cam_defs += [
-                os.path.join(cam_dir, dir_name) for dir_name in os.listdir(cam_dir)
-            ]
-            continue
+            elif cam_defs_type == "subdir":
+                args.cam_defs += [
+                    os.path.join(cam_dir, dir_name) for dir_name in os.listdir(cam_dir)
+                ]
+                continue
 
-        num_dirs += 1
+            num_dirs += 1
 
     # - show only every n-th camera
     for cam_dir_i in cameras.keys():

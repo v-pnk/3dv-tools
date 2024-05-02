@@ -35,6 +35,11 @@ parser.add_argument(
     help="Image list file (one image relative path per line) with the subset of images",
 )
 parser.add_argument(
+    "--every_nth",
+    type=int,
+    help="Use every nth image (in alphabetical order) from the input_colmap model",
+)
+parser.add_argument(
     "--old_img_postfix",
     type=str,
     help="Filename postfix of the images in the input_colmap model",
@@ -61,11 +66,11 @@ def main(args):
         args.input_colmap
     ), "The input COLMAP model does not exist: {}".format(args.input_colmap)
     assert os.path.isdir(
-        args.new_img_dir
-    ), "The new image directory does not exist: {}".format(args.new_img_dir)
-    assert os.path.isdir(
         args.output_colmap
     ), "The output COLMAP model does not exist: {}".format(args.output_colmap)
+
+    print("- reading COLMAP model")
+    model_in = pycolmap.Reconstruction(args.input_colmap)
 
     print("- getting the list of images")
     img_mapping = {}
@@ -74,15 +79,26 @@ def main(args):
         args.old_img_postfix = ""
 
     if args.new_img_dir is not None:
+        assert os.path.isdir(
+            args.new_img_dir
+        ), "The new image directory does not exist: {}".format(args.new_img_dir)
+
         new_images = [
             os.path.relpath(os.path.join(dp, f), args.new_img_dir)
             for dp, _, filenames in os.walk(args.new_img_dir)
             for f in filenames
         ]
     elif args.new_img_list is not None:
+        assert os.path.isfile(
+            args.new_img_list
+        ), "The new image list file does not exist: {}".format(args.new_img_list)
+
         new_images = read_img_list(args.new_img_list)
+    elif args.every_nth is not None:
+        old_images = [img.name for img in model_in.images.values()]
+        new_images = sorted(old_images)[:: args.every_nth]
     else:
-        raise ValueError("Either new_img_dir or new_img_list must be specified")
+        raise ValueError("Either new_img_dir, new_img_list or every_nth value must be specified")
 
     if (args.old_img_postfix is not None) and (args.new_img_postfix is not None):
         for new_img in new_images:
@@ -91,9 +107,6 @@ def main(args):
     else:
         for img in new_images:
             img_mapping[img] = img
-
-    print("- reading COLMAP model")
-    model_in = pycolmap.Reconstruction(args.input_colmap)
 
     print("- filtering COLMAP model images")
     model_out = copy.deepcopy(model_in)
