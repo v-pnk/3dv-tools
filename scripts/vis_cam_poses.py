@@ -143,7 +143,7 @@ parser.add_argument(
 parser.add_argument(
     "--pairs_file", 
     type=str, 
-    help="Pairs for visualization - two image names per line"
+    help="Pairs for visualization - two image names per line",
 )
 
 
@@ -224,6 +224,12 @@ def main(args):
 
             if args.shading == "on":
                 model_mesh.compute_triangle_normals()
+
+            # - check if it's a mesh or a point cloud
+            if len(model_mesh.triangles) == 0:
+                mesh_tmp = o3d.geometry.PointCloud()
+                mesh_tmp.points = o3d.utility.Vector3dVector(model_mesh.vertices)
+                model_mesh = mesh_tmp
 
             vis.add_geometry(model_mesh)
 

@@ -85,7 +85,14 @@ def parse_nvm(path):
             img_path = os.path.splitext(os.path.join(args.image_dir, name))[0]
 
             # - find the corresponding file to the file name from the NVM model
-            found_path = min(glob.glob(img_path + "*", recursive=True), key=len)
+            try:
+                found_path = min(glob.glob(img_path + "*", recursive=True), key=len)
+            except ValueError:
+                assert False, (
+                    "ERROR: "
+                    + img_path
+                    + " image path is invalid - check the given path to the image directory"
+                )
 
             assert os.path.isfile(found_path), (
                 "ERROR: "

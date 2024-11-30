@@ -16,10 +16,10 @@ import open3d as o3d
 
 parser = argparse.ArgumentParser(description="3D mesh visualizer")
 parser.add_argument(
-    "mesh_files", 
-    type=str, 
-    nargs="+", 
-    help="Paths to the input 3D mesh files"
+    "mesh_files",
+    type=str,
+    nargs="+",
+    help="Paths to the input 3D mesh or point cloud files",
 )
 parser.add_argument(
     "--background_color",
@@ -31,7 +31,7 @@ parser.add_argument(
 parser.add_argument(
     "--show_back_face", 
     action="store_true", 
-    help="Show the back face of the mesh"
+    help="Show the back face of the mesh",
 )
 
 
@@ -55,9 +55,18 @@ def main(args):
     for idx, mesh_file in enumerate(args.mesh_files):
         print("Loading {}".format(mesh_file))
         mesh = o3d.io.read_triangle_mesh(mesh_file, print_progress=True)
-        mesh.compute_vertex_normals()
+
+        # - check if it's a mesh or a point cloud
+        if len(mesh.triangles) > 0:
+            mesh.compute_vertex_normals()
+        else:
+            mesh_tmp = o3d.geometry.PointCloud()
+            mesh_tmp.points = o3d.utility.Vector3dVector(mesh.vertices)
+            mesh = mesh_tmp
+
         color = color_palette[idx % len(color_palette), :]
         mesh.paint_uniform_color(color)
+
         vis.add_geometry(mesh)
 
         color_print_str += (
