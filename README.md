@@ -25,6 +25,7 @@ Following is a list of the scripts in this repository, roughly ordered by their 
 - [mask_change_format.py](scripts/mask_change_format.py) - Change format of a given binary mask between formates accepted by I-NGP and Nerfstudio.
 - [mask_invert.py](scripts/mask_invert.py) - Invert the given binary mask.
 - [mask_to_alpha.py](scripts/mask_to_alpha.py) - Move a given binary mask to the alpha channel of a given image.
+- [mask_visualize.py](scripts/vis_masks.py) - Blend a binary with a corresponding image.
 - [mesh_dist.py](scripts/mesh_dist.py) - Visualize distances between two mesh models and report distance statistics.
 - [vis_cam_poses.py](scripts/vis_cam_poses.py) - Visualize camera poses in 3D space. 
 - [vis_depth.py](scripts/vis_depth.py) - Visualize and export a given depth map as a colored image or a 3D point cloud.
