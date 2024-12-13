@@ -187,6 +187,8 @@ def main(args):
     for mesh_i in scene.meshes:
         mesh += mesh_i.mesh
 
+    print(len(mesh.vertices))
+
     bbox = mesh.get_oriented_bounding_box()
 
     center = np.reshape(bbox.get_center(), (3, 1))
@@ -234,8 +236,6 @@ def main(args):
     # The basic camera coordinate frame
     # - CG convention (Z points behind cam, Y points down)
     T_init_CG = np.array([[0, 0, -1, 0], [1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 0, 1]])
-
-    T_init_CV = np.array([[0, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
 
     T_center = np.eye(4)
     T_center[0:3, 3] = center.flatten()
@@ -328,11 +328,8 @@ def main(args):
         T_out = np.linalg.inv(T_end)
         T_colmap = T_out
 
-        R = T_out[0:3, 0:3]
-        t = T_out[0:3, 3]
-
         img_name = "sphere_r{:.0f}_a{:.0f}_e{:.0f}".format(
-            r, np.degrees(el), np.degrees(az)
+            r, np.degrees(az), np.degrees(el)
         )
 
         # IMAGE_ID, QW, QX, QY, QZ, TX, TY, TZ, CAMERA_ID, NAME
