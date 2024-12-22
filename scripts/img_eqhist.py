@@ -30,12 +30,18 @@ parser.add_argument(
     default="clahe",
     help="Mode of histogram equalization - simple global histogram equalization or CLAHE (Contrast Limited Adaptive Histogram Equalization)"
 )
+parser.add_argument(
+    "--clahe_contrast_limit",
+    type=float,
+    default=2.0,
+    help="CLAHE contrast limit value",
+)
 
 
 def main(args):
     if os.path.isfile(args.input_path):
         img = cv2.imread(args.input_path)
-        img_eq = equalize_img(img)
+        img_eq = equalize_img(img, args.mode, args.clahe_contrast_limit)
         cv2.imwrite(args.output_path, img_eq)
     else:
         os.makedirs(args.output_path, exist_ok=True)
@@ -43,11 +49,11 @@ def main(args):
             for file in files:
                 if file.endswith((".jpg", ".jpeg", ".png")):
                     img = cv2.imread(os.path.join(root, file))
-                    img_eq = equalize_img(img)
+                    img_eq = equalize_img(img, args.mode, args.clahe_contrast_limit)
                     cv2.imwrite(os.path.join(args.output_path, file), img_eq)
 
 
-def equalize_img(img, mode):
+def equalize_img(img, mode, clahe_contrast_limit=2.0):
     """Equalize the histogram of the image.
 
     Parameters:
@@ -64,7 +70,7 @@ def equalize_img(img, mode):
     # equalize the histogram of the luma component
 
     if mode == "clahe":
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        clahe = cv2.createCLAHE(clipLimit=clahe_contrast_limit, tileGridSize=(8, 8))
         img_yuv[:, :, 0] = clahe.apply(img_yuv[:, :, 0])
     elif mode == "global":
         img_yuv[:, :, 0] = cv2.equalizeHist(img_yuv[:, :, 0])
