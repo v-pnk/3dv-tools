@@ -100,8 +100,9 @@ parser.add_argument(
 
 
 def main(args):
-    mesh_A = o3d.io.read_triangle_mesh(args.mesh_A, print_progress=True)
-    mesh_B = o3d.io.read_triangle_mesh(args.mesh_B, print_progress=True)
+    # - enable mesh post-processing to filter out incompatible geometry primitives
+    mesh_A = o3d.io.read_triangle_mesh(args.mesh_A, enable_post_processing=True, print_progress=True)
+    mesh_B = o3d.io.read_triangle_mesh(args.mesh_B, enable_post_processing=True, print_progress=True)
 
     tris_A_num_init = np.asarray(mesh_A.triangles).shape[0]
     tris_B_num_init = np.asarray(mesh_B.triangles).shape[0]
@@ -194,9 +195,11 @@ def main(args):
     dists_max = np.max(dists)
     dists_norm = (dists - dists_min) / (dists_max - dists_min)
 
-    cmap = plt.get_cmap("viridis")
+    cmap = plt.get_cmap("turbo")
     rgb = cmap(dists_norm).squeeze()[:, 0:3]
     mesh_A.vertex_colors = o3d.utility.Vector3dVector(rgb)
+    # - remove UV mapping to show the colors and not a texture
+    mesh_A.triangle_uvs = o3d.utility.Vector2dVector([])
 
     if args.dont_visualize:
         vis = o3d.visualization.Visualizer()
