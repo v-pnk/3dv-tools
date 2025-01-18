@@ -11,6 +11,7 @@ Following is a list of the scripts in this repository, roughly ordered by their 
 - [img_filt_bilat.py](scripts/img_filt_bilat.py) - Apply bilateral filter on a given image.
 - [img_filt_gauss.py](scripts/img_filt_gauss.py) - Apply Gaussian filter on a given image.
 - [img_filt_med.py](scripts/img_filt_med.py) - Apply median filter on a given image.
+- [img_apply_lut.py](scripts/img_apply_lut.py) - Apply a LUT (defined in a file) to a given image.
 - [color_view.py](scripts/color_view.py) - Visualize a color in terminal based on RGB or HEX values.
 - [matplotlib_colormap.py](scripts/matplotlib_colormap.py) - Get color samples from a Matplotlib colormap.
 - [cam_poses_environment.py](scripts/cam_poses_environment.py) - Sample camera poses for rendering of an outdoor or indoor environment 3D mesh model.
