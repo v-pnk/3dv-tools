@@ -33,6 +33,12 @@ parser.add_argument(
     action="store_true", 
     help="Show the back face of the mesh",
 )
+parser.add_argument(
+    "--output_mesh",
+    type=str,
+    default=None,
+    help="Path to the output mesh file",
+)
 
 
 color_palette = np.array(
@@ -52,6 +58,9 @@ def main(args):
 
     color_print_str = ""
 
+    input_types = []
+    input_data = []
+
     for idx, mesh_file in enumerate(args.mesh_files):
         print("Loading {}".format(mesh_file))
         mesh = o3d.io.read_triangle_mesh(mesh_file, print_progress=True)
@@ -59,15 +68,18 @@ def main(args):
         # - check if it's a mesh or a point cloud
         if len(mesh.triangles) > 0:
             mesh.compute_vertex_normals()
+            input_types.append("mesh")
         else:
             mesh_tmp = o3d.geometry.PointCloud()
             mesh_tmp.points = o3d.utility.Vector3dVector(mesh.vertices)
             mesh = mesh_tmp
+            input_types.append("pc")
 
         color = color_palette[idx % len(color_palette), :]
         mesh.paint_uniform_color(color)
 
         vis.add_geometry(mesh)
+        input_data.append(mesh)
 
         color_print_str += (
             "\x1b[38;2;{};{};{}m".format(
@@ -79,6 +91,34 @@ def main(args):
         color_print_str += "  " + mesh_file + "\n"
 
     print(color_print_str)
+
+    if args.output_mesh is not None:
+        if len(set(input_types)) == 1 and set(input_types) == {"pc"}:
+            output_pc = o3d.geometry.PointCloud()
+            for d in input_data:
+                output_pc += d
+            print("Saving the output point cloud to {}".format(args.output_mesh))
+            o3d.io.write_point_cloud(args.output_mesh, output_pc)
+        elif len(set(input_types)) == 1 and set(input_types) == {"mesh"}:
+            output_mesh = o3d.geometry.TriangleMesh()
+            for d in input_data:
+                output_mesh += d
+            print("Saving the output mesh to {}".format(args.output_mesh))
+            o3d.io.write_triangle_mesh(args.output_mesh, output_mesh)
+        else:
+            output_mesh = o3d.geometry.TriangleMesh()
+            for d in input_data:
+                if type(d) == o3d.geometry.PointCloud:
+                    m = o3d.geometry.TriangleMesh()
+                    m.vertices = d.points
+                    m.vertex_colors = d.colors
+                    output_mesh += m
+                else:
+                    output_mesh += d
+            
+            print("Saving the output mesh to {}".format(args.output_mesh))
+            print("WARN: The output file is a combination of the given meshes and point clouds. Visualization tools will probably not interpret the output file correctly.")
+            o3d.io.write_triangle_mesh(args.output_mesh, output_mesh)
 
     vis.get_render_option().background_color = np.array(args.background_color)
     vis.get_render_option().mesh_show_back_face = args.show_back_face
