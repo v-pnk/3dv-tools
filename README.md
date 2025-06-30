@@ -14,6 +14,7 @@ Following is a list of the scripts in this repository, roughly ordered by their 
 - [img_apply_lut.py](scripts/img_apply_lut.py) - Apply a LUT (defined in a file) to a given image.
 - [color_view.py](scripts/color_view.py) - Visualize a color in terminal based on RGB or HEX values.
 - [matplotlib_colormap.py](scripts/matplotlib_colormap.py) - Get color samples from a Matplotlib colormap.
+- [gen_distinctipy.py](scripts/gen_distinctipy.py) - Generate a set of distinct colors using the Distinctipy library.
 - [cam_poses_environment.py](scripts/cam_poses_environment.py) - Sample camera poses for rendering of an outdoor or indoor environment 3D mesh model.
 - [cam_poses_object_centric.py](scripts/cam_poses_object_centric.py) - Sample camera poses for rendering of an object-centric 3D mesh model.
 - [depth_mode_change.py](scripts/depth_mode_change.py) - Change the mode of a given depth map between distance from camera center and Z-distance from camera plane.
