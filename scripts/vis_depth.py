@@ -161,6 +161,7 @@ def main(args):
     depth_min = np.amin(depth_img)
     depth_max = np.amax(depth_img)
 
+    print("- depth map shape = {}".format(depth_img.shape[:2]))
     print("- min depth in file = {:.3f}".format(depth_min))
     print("- max depth in file = {:.3f}".format(depth_max))
 

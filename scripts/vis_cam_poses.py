@@ -46,6 +46,12 @@ parser.add_argument(
     help="Scale of the camera 3D model (in scene units), default: %(default)s",
 )
 parser.add_argument(
+    "--coordinate_frame_scale",
+    default=1.0,
+    type=float,
+    help="Scale of the coordinate frame visualization (in scene units), default: %(default)s",
+)
+parser.add_argument(
     "--cam_rand_shift",
     default=0.0,
     type=float,
@@ -300,6 +306,7 @@ def main(args):
         load_color_file(args.cam_color_file, cameras, args)
 
     # - visualize cameras
+    cameras_vis_list = []
     for cam_dir_i in cameras.keys():
         for cam_i in cameras[cam_dir_i]:
             if not ("color" in cameras[cam_dir_i][cam_i]):
@@ -316,21 +323,35 @@ def main(args):
                 )
                 vis_T[0:3, 3] = vis_T[0:3, 3] + rand_shift
 
-            cam_vis = o3d.geometry.LineSet.create_camera_visualization(
-                cameras[cam_dir_i][cam_i]["w"],
-                cameras[cam_dir_i][cam_i]["h"],
-                cameras[cam_dir_i][cam_i]["K"],
-                cameras[cam_dir_i][cam_i]["T"],
-                args.cam_scale,
-            )
-            cam_vis.paint_uniform_color(color)
-            vis.add_geometry(cam_vis)
+            if args.cam_scale > 0:
+                # - create a wireframe camera model
+                cam_vis = o3d.geometry.LineSet.create_camera_visualization(
+                    cameras[cam_dir_i][cam_i]["w"],
+                    cameras[cam_dir_i][cam_i]["h"],
+                    cameras[cam_dir_i][cam_i]["K"],
+                    cameras[cam_dir_i][cam_i]["T"],
+                    args.cam_scale,
+                )
+                cam_vis.paint_uniform_color(color)
+                cameras_vis_list.append(cam_vis)
+            else:
+                # - show just the camera center as a point
+                if len(cameras_vis_list) == 0:
+                    cam_vis = o3d.geometry.PointCloud()
+                    cameras_vis_list.append(cam_vis)
+                cam_C = -vis_T[0:3, 0:3].T @ vis_T[0:3, 3]
+                cameras_vis_list[0].points.append(cam_C)
+                cameras_vis_list[0].colors.append(color)
+        
+    for cam_vis in cameras_vis_list:
+        vis.add_geometry(cam_vis)
 
     # - visualize world coordinate frame
-    world_cs = o3d.geometry.TriangleMesh.create_coordinate_frame(
-        size=10 * args.cam_scale
-    )
-    vis.add_geometry(world_cs)
+    if args.coordinate_frame_scale > 0:
+        world_cs = o3d.geometry.TriangleMesh.create_coordinate_frame(
+            size=args.coordinate_frame_scale
+        )
+        vis.add_geometry(world_cs)
 
     if args.show_back_face == "on":
         vis.get_render_option().mesh_show_back_face = True

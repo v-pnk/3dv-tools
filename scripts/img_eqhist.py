@@ -48,7 +48,7 @@ def main(args):
         for root, _, files in os.walk(args.input_path):
             for file in files:
                 if file.endswith((".jpg", ".jpeg", ".png")):
-                    img = cv2.imread(os.path.join(root, file))
+                    img = cv2.imread(os.path.join(root, file), cv2.IMREAD_UNCHANGED)
                     img_eq = equalize_img(img, args.mode, args.clahe_contrast_limit)
                     cv2.imwrite(os.path.join(args.output_path, file), img_eq)
 
@@ -66,6 +66,10 @@ def equalize_img(img, mode, clahe_contrast_limit=2.0):
 
     """
 
+    if mode == "global" and img.dtype == "uint16":
+        # OpenCV histogram equalization needs 8-bit input images
+        img = (img / 255).astype("uint8")
+    
     img_yuv = cv2.cvtColor(img, cv2.COLOR_BGR2YCrCb)
     # equalize the histogram of the luma component
 
