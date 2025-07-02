@@ -67,11 +67,20 @@ def main(args):
     for meta_i, file_i in zip(metadata, file_list):
         name_i = os.path.relpath(file_i, args.image_dir)
 
-        if ("EXIF:GPSLatitude" in meta_i.keys()) and (
-            "EXIF:GPSLongitude" in meta_i.keys()
-        ):
+        if ("EXIF:GPSLatitude" in meta_i.keys()
+            and "EXIF:GPSLongitude" in meta_i.keys()
+            and meta_i["EXIF:GPSLatitude"]
+            and meta_i["EXIF:GPSLongitude"]):
+
+            lat_ref = meta_i.get("EXIF:GPSLatitudeRef", "N")
+            lon_ref = meta_i.get("EXIF:GPSLongitudeRef", "E")
+
             latitude = float(meta_i["EXIF:GPSLatitude"])
+            if lat_ref == "S":
+                latitude = -latitude
             longitude = float(meta_i["EXIF:GPSLongitude"])
+            if lon_ref == "W":
+                longitude = -longitude
 
             img_metadata_all[name_i] = {
                 "latitude": latitude,
@@ -124,7 +133,7 @@ def main(args):
         import matplotlib.cm
 
         for img_name in img_metadata_all.keys():
-            if "datetime" in img_metadata_all[img_name].keys():
+            if "datetime" in img_metadata_all[img_name].keys() and len(all_timestamps) > 1:
                 rel_timestamp = (
                     img_metadata_all[img_name]["datetime"].timestamp()
                     - min(all_timestamps)
