@@ -53,14 +53,14 @@ parser.add_argument(
 parser.add_argument(
     "--resize_by_colmap",
     action="store_true",
-    help="Resize the images based on sizes of the COLMAP modelin the input_colmap directory",
+    help="Resize the images based on sizes of the COLMAP model in the input_colmap directory",
 )
 parser.add_argument(
     "--image_interp",
     type=str,
     choices=["bicubic", "nearest"],
     default="bicubic",
-    help="Resize the images based on sizes of the COLMAP modelin the input_colmap directory",
+    help="Interpolation method",
 )
 
 
@@ -148,7 +148,10 @@ def main(args):
             if not (os.path.exists(img_out_dir)):
                 os.makedirs(img_out_dir)
 
-            img_out.save(img_out_path)
+            if os.path.splitext(img_out_path)[1].lower() in [".jpg", ".jpeg"]:
+                img_out.save(img_out_path, quality=95)
+            else:
+                img_out.save(img_out_path)
 
     if (args.input_colmap is not None) and (args.output_colmap is not None):
         print("- resizing the COLMAP model")
@@ -176,8 +179,7 @@ def main(args):
                 )
 
             for pnt2D in img.points2D:
-                pnt2D.x = resize_ratio * pnt2D.x
-                pnt2D.y = resize_ratio * pnt2D.y
+                pnt2D.xy = (pnt2D.xy[0] * resize_ratio, pnt2D.xy[1] * resize_ratio)
 
         # rescale the cameras
         for cam in model.cameras.values():
