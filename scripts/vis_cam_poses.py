@@ -74,7 +74,9 @@ parser.add_argument(
     type=float,
     help="Maximum distance of camera from center of the mesh (in multiplies "
     "of the length of max side of axis-aligned bounding box of the given "
-    "mesh)",
+    "mesh). If the --model_path is not given, the distance is measured from "
+    "the median of the camera centers and relative to the max side of their " 
+    "AABB. Setting a value < 0 turns the filtration off. Default: %(default)s",
 )
 parser.add_argument(
     "--cam_colormap",
@@ -103,6 +105,12 @@ parser.add_argument(
     help="Function which to apply to the values in cam_color_file",
 )
 parser.add_argument(
+    "--cam_fixed_color",
+    nargs=3,
+    type=str,
+    help="Fixed color of all cameras in R G B format (values between 0-1)",
+)
+parser.add_argument(
     "--every_nth_cam",
     default=1,
     type=int,
@@ -124,6 +132,12 @@ parser.add_argument(
     ],
     default="texture",
     help="Mesh coloring mode - monochromatic / texture (works also for vertex-colored meshes) / gradient along x/y/z axis / normals",
+)
+parser.add_argument(
+    "--model_fixed_color",
+    nargs=3,
+    type=str,
+    help="Fixed color of the mesh model in R G B format (values between 0-1)",
 )
 parser.add_argument(
     "--shading",
@@ -157,14 +171,22 @@ def main(args):
     vis = o3d.visualization.Visualizer()
     vis.create_window()
 
+    view_centered = False
+
     if args.model_path is not None:
         if os.path.splitext(args.model_path)[1] in [".xyz"]:
             model_pcd = o3d.io.read_point_cloud(args.model_path, print_progress=True)
+
+            if args.model_fixed_color is not None:
+                model_pcd.paint_uniform_color(
+                    np.reshape(np.array(args.model_fixed_color, dtype=float), (3,))
+                )
             vis.add_geometry(model_pcd)
 
             aabb = model_pcd.get_axis_aligned_bounding_box()
             aabb_center = aabb.get_center()
             vis.get_view_control().set_lookat(aabb_center)
+            view_centered = True
             max_side = np.max(aabb.get_extent())
         elif os.path.isdir(args.model_path) and (os.path.exists(os.path.join(args.model_path, "points3D.bin")) or os.path.exists(os.path.join(args.model_path, "points3D.txt"))):
             import pycolmap
@@ -181,11 +203,17 @@ def main(args):
             model_pcd = o3d.geometry.PointCloud()
             model_pcd.points = o3d.utility.Vector3dVector(pnts3d)
             model_pcd.colors = o3d.utility.Vector3dVector(colors)
+
+            if args.model_fixed_color is not None:
+                model_pcd.paint_uniform_color(
+                    np.reshape(np.array(args.model_fixed_color, dtype=float), (3,))
+                )
             vis.add_geometry(model_pcd)
 
             aabb = model_pcd.get_axis_aligned_bounding_box()
             aabb_center = aabb.get_center()
             vis.get_view_control().set_lookat(aabb_center)
+            view_centered = True
             max_side = np.max(aabb.get_extent())
         else:
             # Color the mesh
@@ -197,7 +225,11 @@ def main(args):
                 model_mesh = o3d.io.read_triangle_mesh(
                     args.model_path, print_progress=True
                 )
-                if args.mesh_vis_mode.startswith("grad"):
+                if args.model_fixed_color is not None:
+                    model_mesh.paint_uniform_color(
+                        np.reshape(np.array(args.model_fixed_color, dtype=float), (3,))
+                    )
+                elif args.mesh_vis_mode.startswith("grad"):
                     if args.mesh_vis_mode == "grad+x":
                         model_mesh_vertex = np.asarray(model_mesh.vertices)[:, 0, None]
                     if args.mesh_vis_mode == "grad-x":
@@ -235,6 +267,11 @@ def main(args):
             if len(model_mesh.triangles) == 0:
                 mesh_tmp = o3d.geometry.PointCloud()
                 mesh_tmp.points = o3d.utility.Vector3dVector(model_mesh.vertices)
+                mesh_tmp.colors = model_mesh.vertex_colors
+                if args.model_fixed_color is not None:
+                    mesh_tmp.paint_uniform_color(
+                        np.reshape(np.array(args.model_fixed_color, dtype=float), (3,))
+                    )
                 model_mesh = mesh_tmp
 
             vis.add_geometry(model_mesh)
@@ -242,6 +279,7 @@ def main(args):
             aabb = model_mesh.get_axis_aligned_bounding_box()
             aabb_center = aabb.get_center()
             vis.get_view_control().set_lookat(aabb_center)
+            view_centered = True
             max_side = np.max(aabb.get_extent())
             print("Mesh model axis-aligned bounding box corners:")
             print(aabb.get_print_info())
@@ -293,9 +331,25 @@ def main(args):
     # - filter cameras based on distance to the mesh model center (max_cam_dist)
     if (args.model_path is not None) and (args.max_cam_dist > 0):
         filter_if_too_far(cameras, aabb_center, max_side, args.max_cam_dist)
+    elif (args.model_path is None) and (args.max_cam_dist > 0):
+        # - compute cameras centroid and AABB
+        all_cams_pcd = o3d.geometry.PointCloud()
+        cam_centers = []
+        for cam_dir_i in cameras.keys():
+            for cam_i in cameras[cam_dir_i]:
+                R = cameras[cam_dir_i][cam_i]["T"][0:3, 0:3]
+                t = cameras[cam_dir_i][cam_i]["T"][0:3, 3]
+                C = -R.T @ t
+                cam_centers.append(C)
+        all_cams_pcd.points = o3d.utility.Vector3dVector(np.array(cam_centers))
+        aabb = all_cams_pcd.get_axis_aligned_bounding_box()
+        cam_mean = np.median(np.array(cam_centers), axis=0)
+        max_side = np.max(aabb.get_extent())
+
+        filter_if_too_far(cameras, cam_mean, max_side, args.max_cam_dist)
 
     # - define camera color palette used if no color file is given
-    cam_palette = matplotlib.cm.get_cmap(args.cam_colormap)(
+    cam_palette = matplotlib.colormaps[args.cam_colormap](
         np.linspace(0.0, 1.0, num_dirs)
     )[:, 0:3].T
     rng = np.random.default_rng(42)
@@ -309,7 +363,9 @@ def main(args):
     cameras_vis_list = []
     for cam_dir_i in cameras.keys():
         for cam_i in cameras[cam_dir_i]:
-            if not ("color" in cameras[cam_dir_i][cam_i]):
+            if args.cam_fixed_color is not None:
+                color = np.reshape(np.array(args.cam_fixed_color, dtype=float), (3, 1))
+            elif not ("color" in cameras[cam_dir_i][cam_i]):
                 color = cam_palette[:, cam_dir_i % cam_palette.shape[1]]
             else:
                 color = cameras[cam_dir_i][cam_i]["color"]
@@ -345,6 +401,19 @@ def main(args):
         
     for cam_vis in cameras_vis_list:
         vis.add_geometry(cam_vis)
+    
+    if view_centered is False and len(cameras_vis_list) > 0:
+        # - center view on the cameras
+        all_cams_pcd = o3d.geometry.PointCloud()
+        for cam_vis in cameras_vis_list:
+            if isinstance(cam_vis, o3d.geometry.PointCloud):
+                all_cams_pcd += cam_vis
+            else:
+                cam_pts = cam_vis.points
+                all_cams_pcd.points.extend(cam_pts)
+        aabb = all_cams_pcd.get_axis_aligned_bounding_box()
+        aabb_center = aabb.get_center()
+        vis.get_view_control().set_lookat(aabb_center)
 
     # - visualize world coordinate frame
     if args.coordinate_frame_scale > 0:
@@ -380,7 +449,7 @@ def filter_if_too_far(cameras, aabb_center, max_side, max_cam_dist):
 
 def load_color_file(input_path, cameras, args):
     f = open(input_path, "rt")
-    cmap = plt.get_cmap(args.cam_colormap)
+    cmap = matplotlib.colormaps[args.cam_colormap]
     all_vals = []
 
     for line in f:
@@ -580,8 +649,8 @@ def load_colmap(input_path):
         K = cam.calibration_matrix()
 
         T = np.eye(4)
-        T[0:3, 0:3] = img.rotation_matrix()
-        T[0:3, 3] = img.tvec
+        T[0:3, 0:3] = img.cam_from_world().rotation.matrix()
+        T[0:3, 3] = img.cam_from_world().translation
 
         cameras_dir[img_name] = {}
         cameras_dir[img_name]["w"] = w
